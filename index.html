@@ -314,6 +314,7 @@
             // board parameters to figure out the color per pixel.  the lookup
             // table only depends on intrinsics/distortion so it can be kept
             // around while extrinsic/board values change.
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
             if (showSquares)
             {
                 // create a fresh image buffer and fill it using the slopes
