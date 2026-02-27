@@ -229,31 +229,32 @@
         let bc = 12, br = 9, bw = 100, bh = 100, center = true, showSquares = true, showCircles = true;
         let rx = 0, ry = 0, rz = 0, tx = 0, ty = 0, tz = 1000, inverse = false;
 
-        // rotation matrices and camera->world transform (updated when extrinsic changes)
-        let R11,R12,R13,R21,R22,R23,R31,R32,R33;
-        let Rcw11,Rcw12,Rcw13,Rcw21,Rcw22,Rcw23,Rcw31,Rcw32,Rcw33;
-        let tcwx, tcwy, tcwz;
-
         // undistortion lookup table when showing squares
         let undistortTable = null;
 
-        function projectPoint(p3d)
-        {
-            // Compute sine and cosine
+        // Helper that computes the same 3x3 rotation matrix as a
+        // function of Euler angles (rx, ry, rz) expressed in radians.
+        function eulerAnglesToRotationMatrix(rx, ry, rz) {
             let cosRx = Math.cos(rx), sinRx = Math.sin(rx);
             let cosRy = Math.cos(ry), sinRy = Math.sin(ry);
             let cosRz = Math.cos(rz), sinRz = Math.sin(rz);
+            return {
+                R11: cosRy * cosRz,
+                R12: cosRy * sinRz,
+                R13: -sinRy,
+                R21: sinRx * sinRy * cosRz - cosRx * sinRz,
+                R22: sinRx * sinRy * sinRz + cosRx * cosRz,
+                R23: sinRx * cosRy,
+                R31: cosRx * sinRy * cosRz + sinRx * sinRz,
+                R32: cosRx * sinRy * sinRz - sinRx * cosRz,
+                R33: cosRx * cosRy
+            };
+        }
 
-            // Rotation matrix components
-            let R11 = cosRy * cosRz;
-            let R12 = cosRy * sinRz;
-            let R13 = -sinRy;
-            let R21 = sinRx * sinRy * cosRz - cosRx * sinRz;
-            let R22 = sinRx * sinRy * sinRz + cosRx * cosRz;
-            let R23 = sinRx * cosRy;
-            let R31 = cosRx * sinRy * cosRz + sinRx * sinRz;
-            let R32 = cosRx * sinRy * sinRz - sinRx * cosRz;
-            let R33 = cosRx * cosRy;
+        function projectPoint(p3d)
+        {
+            // compute rotation matrix once and reuse
+            let {R11, R12, R13, R21, R22, R23, R31, R32, R33} = eulerAnglesToRotationMatrix(rx, ry, rz);
 
             // Apply rotation & translation
             let [xw, yw, zw] = p3d;
@@ -271,37 +272,14 @@
                 zc = R31 * xw + R32 * yw + R33 * zw + tz;
             }
             
-            // Comments are the original perspective division, but it can cause issues when zc is negative (point behind the camera) or close to zero. Using absolute value of zc can help visualize points behind the camera and avoid extreme distortion for points close to the camera.
-            // let xp = xc / zc;
-            // let yp = yc / zc;
-            let xp = xc / Math.abs(zc);
-            let yp = yc / Math.abs(zc);
-            if (fisheye)
-            {
-                let r = Math.sqrt(xp * xp + yp * yp);
-                if (r > 0)
-                {
-                    // Comments are the original fisheye distortion formula, but it can cause issues when zc is negative (point behind the camera) or close to zero. Using atan2 with absolute value of zc can help visualize points behind the camera and avoid extreme distortion for points close to the camera.
-                    // let theta1 = Math.atan(Math.sqrt(xc * xc + yc * yc) / zc);
-                    let theta1 = Math.atan2(Math.sqrt(xc * xc + yc * yc), zc);
-                    let theta2 = theta1 * theta1;
-                    let theta3 = theta2 * theta1;
-                    let theta5 = theta2 * theta3;
-                    let theta7 = theta2 * theta5;
-                    let theta9 = theta2 * theta7;
-                    let theta_d = theta1 + k1 * theta3 + k2 * theta5 + k3 * theta7 + k4 * theta9;
-                    xp = (theta_d / r) * xp;
-                    yp = (theta_d / r) * yp;
-                }
-            }
-            else
-            {
-                let [xp_dist, yp_dist] = applyDistortion(xp, yp);
-                xp = xp_dist;
-                yp = yp_dist;
-            }
+            // normalize and apply distortion
+            [xp, yp] = applyDistortion(xc, yc, zc);
+
+            // apply intrinsics
             let u = fx * xp + cx;
             let v = fy * yp + cy;
+
+            // scale to canvas size (this allows the intrinsic parameters to be specified in terms of an arbitrary image size, independent of the canvas display size)
             u = u * canvas.width / iw;
             v = v * canvas.height / ih;
             return [u, v, zc];
@@ -322,33 +300,28 @@
                 let img = ctx.createImageData(width, height);
                 let data = img.data;
 
-                // compute camera→world rotation and camera center
-                let cosRx = Math.cos(rx), sinRx = Math.sin(rx);
-                let cosRy = Math.cos(ry), sinRy = Math.sin(ry);
-                let cosRz = Math.cos(rz), sinRz = Math.sin(rz);
-                let R11 = cosRy * cosRz;
-                let R12 = cosRy * sinRz;
-                let R13 = -sinRy;
-                let R21 = sinRx * sinRy * cosRz - cosRx * sinRz;
-                let R22 = sinRx * sinRy * sinRz + cosRx * cosRz;
-                let R23 = sinRx * cosRy;
-                let R31 = cosRx * sinRy * cosRz + sinRx * sinRz;
-                let R32 = cosRx * sinRy * sinRz - sinRx * cosRz;
-                let R33 = cosRx * cosRy;
-                let Rcw11 = R11, Rcw12 = R21, Rcw13 = R31;
-                let Rcw21 = R12, Rcw22 = R22, Rcw23 = R32;
-                let Rcw31 = R13, Rcw32 = R23, Rcw33 = R33;
-                let Cwx = -(Rcw11*tx + Rcw12*ty + Rcw13*tz);
-                let Cwy = -(Rcw21*tx + Rcw22*ty + Rcw23*tz);
-                let Cwz = -(Rcw31*tx + Rcw32*ty + Rcw33*tz);
+                // compute rotation matrix from Euler angles
+                let {R11, R12, R13, R21, R22, R23, R31, R32, R33} = eulerAnglesToRotationMatrix(rx, ry, rz);
+                let Tx = -tx;
+                let Ty = -ty;
+                let Tz = -tz;
+                if (!inverse)
+                {
+                    let tmp;
+                    tmp = R12; R12 = R21; R21 = tmp;
+                    tmp = R13; R13 = R31; R31 = tmp;
+                    tmp = R23; R23 = R32; R32 = tmp;
+                    Tx = -R11*tx - R12*ty - R13*tz;
+                    Ty = -R21*tx - R22*ty - R23*tz;
+                    Tz = -R31*tx - R32*ty - R33*tz;
+                }
 
                 // chessboard bounds (corners -> cells)
                 // using bc x br corners results in (bc+1) x (br+1) squares.
-                let x_min = 0, x_max = bc - 1, y_min = 0, y_max = br - 1;
-                if (center) {
-                    x_min = -(bc+1)/2; x_max =  (bc+1)/2;
-                    y_min = -(br+1)/2; y_max =  (br+1)/2;
-                }
+                let x_min = center ? -(bc+1)/2 : -1;
+                let x_max = center ?  (bc+1)/2 : bc;
+                let y_min = center ? -(br+1)/2 : -1;
+                let y_max = center ?  (br+1)/2 : br;
                 x_min *= bw; x_max *= bw;
                 y_min *= bh; y_max *= bh;
 
@@ -358,15 +331,15 @@
                         let dx = undistortTable.dx[idxSl];
                         let dy = undistortTable.dy[idxSl];
                         let dz = 1;
-                        let dwx = Rcw11*dx + Rcw12*dy + Rcw13*dz;
-                        let dwy = Rcw21*dx + Rcw22*dy + Rcw23*dz;
-                        let dwz = Rcw31*dx + Rcw32*dy + Rcw33*dz;
+                        let dwx = R11*dx + R12*dy + R13*dz;
+                        let dwy = R21*dx + R22*dy + R23*dz;
+                        let dwz = R31*dx + R32*dy + R33*dz;
                         let color = 128;
                         if (dwz !== 0) {
-                            let s = -Cwz / dwz;
+                            let s = -Tz / dwz;
                             if (s > 0) {
-                                let X = Cwx + s * dwx;
-                                let Y = Cwy + s * dwy;
+                                let X = Tx + s * dwx;
+                                let Y = Ty + s * dwy;
                                 if (X >= x_min && X <= x_max && Y >= y_min && Y <= y_max) {
                                     // cells indexed using floor instead of round
                                     let xi = Math.floor((X - x_min) / bw);
@@ -405,46 +378,60 @@
             }
         }
 
-        // apply distortion model (pinhole radial+tangential or 2D fisheye)
+        // apply distortion model (pinhole radial+tangential or fisheye)
         // to normalized coordinates, returning distorted normalized coordinates
-        function applyDistortion(x, y) {
-            if (fisheye) {
-                let r = Math.sqrt(x*x + y*y);
-                if (r > 0) {
-                    let theta1 = Math.atan2(r, 1);
+        function applyDistortion(xc, yc, zc)
+        {
+            // Comments are the original perspective division, but it can cause issues when zc is negative (point behind the camera) or close to zero. Using absolute value of zc can help visualize points behind the camera and avoid extreme distortion for points close to the camera.
+            // let xp = xc / zc;
+            // let yp = yc / zc;
+            let xp = xc / Math.abs(zc);
+            let yp = yc / Math.abs(zc);
+            if (fisheye)
+            {
+                let r = Math.sqrt(xp * xp + yp * yp);
+                if (r > 0)
+                {
+                    // Comments are the original fisheye distortion formula, but it can cause issues when zc is negative (point behind the camera) or close to zero. Using atan2 with absolute value of zc can help visualize points behind the camera and avoid extreme distortion for points close to the camera.
+                    // let theta1 = Math.atan(Math.sqrt(xc * xc + yc * yc) / zc);
+                    let theta1 = Math.atan2(Math.sqrt(xc * xc + yc * yc), zc);
                     let theta2 = theta1 * theta1;
                     let theta3 = theta2 * theta1;
                     let theta5 = theta2 * theta3;
                     let theta7 = theta2 * theta5;
                     let theta9 = theta2 * theta7;
                     let theta_d = theta1 + k1 * theta3 + k2 * theta5 + k3 * theta7 + k4 * theta9;
-                    x = (theta_d / r) * x;
-                    y = (theta_d / r) * y;
+                    xp = (theta_d / r) * xp;
+                    yp = (theta_d / r) * yp;
                 }
-            } else {
-                let r2 = x*x + y*y;
+            }
+            else
+            {
+                let r2 = xp*xp + yp*yp;
                 let r4 = r2 * r2;
                 let r6 = r4 * r2;
                 let radial = (1 + k1*r2 + k2*r4 + k3*r6) / (1 + k4*r2 + k5*r4 + k6*r6);
-                let dtx = 2 * p1 * x * y + p2 * (r2 + 2 * x * x);
-                let dty = p1 * (r2 + 2 * y * y) + 2 * p2 * x * y;
-                x = x * radial + dtx;
-                y = y * radial + dty;
+                let dtx = 2 * p1 * xp * yp + p2 * (r2 + 2 * xp * xp);
+                let dty = p1 * (r2 + 2 * yp * yp) + 2 * p2 * xp * yp;
+                xp = xp * radial + dtx;
+                yp = yp * radial + dty;
             }
-            return [x, y];
+            return [xp, yp];
         }
 
         // solve for undistorted normalized coordinates given a distorted one
         // uses iterative fixed-point method with configurable convergence criteria
-        function undistortNormalized(xDist, yDist, maxIter = 3e1, eps = 1e-3) {
+        function undistortNormalized(xDist, yDist, maxIter = 3e1, eps = 1e-3)
+        {
             let x = xDist, y = yDist;
-            for (let i = 0; i < maxIter; i++) {
-                let [xp, yp] = applyDistortion(x, y);
+            for (let i = 0; i < maxIter; i++)
+            {
+                let [xp, yp] = applyDistortion(x, y, 1);
                 let dx = xDist - xp;
                 let dy = yDist - yp;
                 x += dx;
                 y += dy;
-                if (dx*dx + dy*dy < eps*eps) break;
+                if (dx*dx + dy*dy < eps) break;
             }
             return [x, y];
         }
@@ -560,12 +547,10 @@
         function update_objp()
         {
             objp = [];
-            let x_min = 0, x_max = bc, y_min = 0, y_max = br;
-            if (center)
-            {
-                x_min = -(bc-1)/2; x_max = bc/2;
-                y_min = -(br-1)/2; y_max = br/2;
-            }
+            let x_min = center ? -(bc-1)/2 : 0;
+            let x_max = center ? bc/2 : bc;
+            let y_min = center ? -(br-1)/2 : 0;
+            let y_max = center ? br/2 : br;
             for (let y = y_min; y < y_max; y++)
             {
                 for (let x = x_min; x < x_max; x++)
@@ -640,20 +625,52 @@
         document.getElementById('bh').addEventListener('input', function() { updateValuesFromSlider('bh'); });
         document.getElementById('bhText').addEventListener('input', function() { updateValuesFromTextBox('bh'); });
         document.getElementById('center').addEventListener('input', function() {
-            if (center < this.checked)
-            {
-                tx += ((bc - 1) * bw) / 2;
-                ty += ((br - 1) * bh) / 2;
+            // when the origin of the chessboard moves we need to shift
+            // the camera translation so that the projected image stays
+            // exactly the same.  this was originally attempted by adding
+            // an x/y offset only, but that fails once the board is
+            // rotated because the center of rotation changes (tz also
+            // needs adjustment).  the correct compensation depends on the
+            // current rotation matrix and the "inverse" flag.
+            //
+            // compute the translation of object coordinates that occurs
+            // when toggling the flag.  positive delta means the world
+            // points move in +x,+y (i.e. switching from centered->uncentered).
+            let halfbw = ((bc - 1) / 2) * bw;
+            let halfbh = ((br - 1) / 2) * bh;
+            let sign = center ? 1 : -1; // current before toggle
+            let delta = [sign * halfbw, sign * halfbh, 0];
+
+            // build rotation matrix from Euler angles (same as in projectPoint)
+            let {R11, R12, R13, R21, R22, R23, R31, R32, R33} = eulerAnglesToRotationMatrix(rx, ry, rz);
+
+            if (!inverse) {
+                // normal case: camera coord = R * world + t
+                // when world points shift by delta we want a new t' such
+                // that R*(X+delta)+t' = R*X + t → t' = t - R*delta
+                let tdx = -(R11 * delta[0] + R12 * delta[1] + R13 * delta[2]);
+                let tdy = -(R21 * delta[0] + R22 * delta[1] + R23 * delta[2]);
+                let tdz = -(R31 * delta[0] + R32 * delta[1] + R33 * delta[2]);
+                tx += tdx;
+                ty += tdy;
+                tz += tdz;
+            } else {
+                // inverse mode: camera coord = R * world + R * t
+                // here t appears inside R so a shift of world by delta is
+                // undone simply by subtracting delta from t.
+                tx -= delta[0];
+                ty -= delta[1];
+                tz -= delta[2];
             }
-            else
-            {
-                tx -= ((bc - 1) * bw) / 2;
-                ty -= ((br - 1) * bh) / 2;
-            }
+
+            // update controls to show the modified translation
             document.getElementById('tx').value = tx;
             document.getElementById('txText').value = tx;
             document.getElementById('ty').value = ty;
             document.getElementById('tyText').value = ty;
+            document.getElementById('tz').value = tz;
+            document.getElementById('tzText').value = tz;
+
             center = this.checked;
             update_objp();
             drawPoints();
