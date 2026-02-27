@@ -1,2 +1,3 @@
 # CamLab
-A visualization site about camera calibration
+A camera model's visualization site
+[Link Text](https://roxign.github.io/CamLab/)
