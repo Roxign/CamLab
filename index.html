@@ -39,19 +39,8 @@
         }
         canvas {
             border: 1px solid black;
+            background-color: lightgray;
         }
-        /* #progress-bar {
-            width: 100%;
-            background-color: #f3f3f3;
-            border: 1px solid #000000;
-        }
-        #progress-bar-fill {
-            width: 0%;
-            height: 20px;
-            background-color: #4caf50;
-            text-align: center;
-            line-height: 20px;
-        } */
     </style>
 </head>
 <body>
@@ -59,10 +48,6 @@
         <!-- <h1 style="text-align: center;">Camera Intrinsic & Distortion Visualization</h1> -->
         <label style="text-align: center; font-family: 'sans-serif'; font-weight: bold; font-size: 32px;">Camera Intrinsic & Distortion Visualization</label>
         <canvas id="canvas" width="640" height="360"></canvas>
-        <!-- <div id="progress-bar">
-            <div id="progress-bar-fill">0%</div>
-        </div>
-        <button onclick="startTask()">start</button> -->
     </div>
     <div class="controls">
         <div class="column">
@@ -101,14 +86,6 @@
                 <input type="text" id="cyText" value="540">
                 <input type="range" id="cy" name="cy" min="0" max="1080" value="540">
             </div>
-            <!-- <div>
-                <label style="display: inline-block; width: 30px;">hFOV</label>
-                <span id="hFOV">0.0°</span>
-                <label style="display: inline-block; width: 30px;">vFOV</label>
-                <span id="vFOV">0.0°</span>
-                <label style="display: inline-block; width: 30px;">dFOV</label>
-                <span id="dFOV">0.0°</span>
-            </div> -->
 
             <!-- Distortion -->
             <div>
@@ -205,14 +182,15 @@
                 <label style="font-family: 'sans-serif'; font-weight: bold; font-size: 20px;">Chessboard:</label>
             </div>
             <div>
+                <!-- number of inner corners along width (bc) and height (br) -->
                 <label for="bc">bc</label>
-                <input type="text" id="bcText" value="13">
-                <input type="range" id="bc" name="bc" min="3" max="100" value="13">
+                <input type="text" id="bcText" value="12">
+                <input type="range" id="bc" name="bc" min="3" max="100" value="12">
             </div>
             <div>
                 <label for="br">br</label>
-                <input type="text" id="brText" value="10">
-                <input type="range" id="br" name="br" min="3" max="100" value="10">
+                <input type="text" id="brText" value="9">
+                <input type="range" id="br" name="br" min="3" max="100" value="9">
             </div>
             <div>
                 <label for="bw">bw</label>
@@ -228,6 +206,15 @@
                 <label for="center">→←</label>
                 <input type="checkbox" id="center" name="center" checked="true">
             </div>
+            <div>
+                <label for="showSquares">■□</label>
+                <input type="checkbox" id="showSquares" name="showSquares" checked="true">
+            </div>
+            <div>
+                <!-- when enabled draw filled circles at each corner after the board is rendered -->
+                <label for="showCircles">●●</label>
+                <input type="checkbox" id="showCircles" name="showCircles" checked="true">
+            </div>
             <button id="reset">Reset</button>
         </div>
     </div>
@@ -239,8 +226,16 @@
         let canvas_w = 640, canvas_h = 360;
         let iw = 1920, ih = 1080, fx = 1000, fy = 1000, cx = 960, cy = 540;
         let k1 = 0, k2 = 0, p1 = 0, p2 = 0, k3 = 0, k4 = 0, k5 = 0, k6 = 0, fisheye = false;
-        let bc = 13, br = 10, bw = 100, bh = 100, center = true;
+        let bc = 12, br = 9, bw = 100, bh = 100, center = true, showSquares = true, showCircles = true;
         let rx = 0, ry = 0, rz = 0, tx = 0, ty = 0, tz = 1000, inverse = false;
+
+        // rotation matrices and camera->world transform (updated when extrinsic changes)
+        let R11,R12,R13,R21,R22,R23,R31,R32,R33;
+        let Rcw11,Rcw12,Rcw13,Rcw21,Rcw22,Rcw23,Rcw31,Rcw32,Rcw33;
+        let tcwx, tcwy, tcwz;
+
+        // undistortion lookup table when showing squares
+        let undistortTable = null;
 
         function projectPoint(p3d)
         {
@@ -275,7 +270,8 @@
                 yc = R21 * xw + R22 * yw + R23 * zw + ty;
                 zc = R31 * xw + R32 * yw + R33 * zw + tz;
             }
-
+            
+            // Comments are the original perspective division, but it can cause issues when zc is negative (point behind the camera) or close to zero. Using absolute value of zc can help visualize points behind the camera and avoid extreme distortion for points close to the camera.
             // let xp = xc / zc;
             // let yp = yc / zc;
             let xp = xc / Math.abs(zc);
@@ -285,6 +281,7 @@
                 let r = Math.sqrt(xp * xp + yp * yp);
                 if (r > 0)
                 {
+                    // Comments are the original fisheye distortion formula, but it can cause issues when zc is negative (point behind the camera) or close to zero. Using atan2 with absolute value of zc can help visualize points behind the camera and avoid extreme distortion for points close to the camera.
                     // let theta1 = Math.atan(Math.sqrt(xc * xc + yc * yc) / zc);
                     let theta1 = Math.atan2(Math.sqrt(xc * xc + yc * yc), zc);
                     let theta2 = theta1 * theta1;
@@ -299,14 +296,9 @@
             }
             else
             {
-                let r2 = xp * xp + yp * yp;
-                let r4 = r2 * r2;
-                let r6 = r4 * r2;
-                let radialDistortion = (1 + k1 * r2 + k2 * r4 + k3 * r6) / (1 + k4 * r2 + k5 * r4 + k6 * r6);
-                let tangentialDistortionX = 2 * p1 * xp * yp + p2 * (r2 + 2 * xp * xp);
-                let tangentialDistortionY = p1 * (r2 + 2 * yp * yp) + 2 * p2 * xp * yp;
-                xp = xp * radialDistortion + tangentialDistortionX;
-                yp = yp * radialDistortion + tangentialDistortionY;
+                let [xp_dist, yp_dist] = applyDistortion(xp, yp);
+                xp = xp_dist;
+                yp = yp_dist;
             }
             let u = fx * xp + cx;
             let v = fy * yp + cy;
@@ -317,21 +309,168 @@
 
         function drawPoints()
         {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            objp.forEach(p3d => {
-                let [u, v, zc] = projectPoint(p3d);
-                if (zc > 0)
-                {
-                    ctx.fillStyle = "red";
+            // if we're rendering the chessboard squares we use the precomputed
+            // undistorted ray slopes and then apply the current extrinsic and
+            // board parameters to figure out the color per pixel.  the lookup
+            // table only depends on intrinsics/distortion so it can be kept
+            // around while extrinsic/board values change.
+            if (showSquares)
+            {
+                // create a fresh image buffer and fill it using the slopes
+                let width = canvas.width, height = canvas.height;
+                let img = ctx.createImageData(width, height);
+                let data = img.data;
+
+                // compute camera→world rotation and camera center
+                let cosRx = Math.cos(rx), sinRx = Math.sin(rx);
+                let cosRy = Math.cos(ry), sinRy = Math.sin(ry);
+                let cosRz = Math.cos(rz), sinRz = Math.sin(rz);
+                let R11 = cosRy * cosRz;
+                let R12 = cosRy * sinRz;
+                let R13 = -sinRy;
+                let R21 = sinRx * sinRy * cosRz - cosRx * sinRz;
+                let R22 = sinRx * sinRy * sinRz + cosRx * cosRz;
+                let R23 = sinRx * cosRy;
+                let R31 = cosRx * sinRy * cosRz + sinRx * sinRz;
+                let R32 = cosRx * sinRy * sinRz - sinRx * cosRz;
+                let R33 = cosRx * cosRy;
+                let Rcw11 = R11, Rcw12 = R21, Rcw13 = R31;
+                let Rcw21 = R12, Rcw22 = R22, Rcw23 = R32;
+                let Rcw31 = R13, Rcw32 = R23, Rcw33 = R33;
+                let Cwx = -(Rcw11*tx + Rcw12*ty + Rcw13*tz);
+                let Cwy = -(Rcw21*tx + Rcw22*ty + Rcw23*tz);
+                let Cwz = -(Rcw31*tx + Rcw32*ty + Rcw33*tz);
+
+                // chessboard bounds (corners -> cells)
+                // using bc x br corners results in (bc+1) x (br+1) squares.
+                let x_min = 0, x_max = bc - 1, y_min = 0, y_max = br - 1;
+                if (center) {
+                    x_min = -(bc+1)/2; x_max =  (bc+1)/2;
+                    y_min = -(br+1)/2; y_max =  (br+1)/2;
                 }
-                else
-                {
-                    ctx.fillStyle = "blue";
+                x_min *= bw; x_max *= bw;
+                y_min *= bh; y_max *= bh;
+
+                for (let v = 0; v < height; v++) {
+                    for (let u = 0; u < width; u++) {
+                        let idxSl = v * width + u;
+                        let dx = undistortTable.dx[idxSl];
+                        let dy = undistortTable.dy[idxSl];
+                        let dz = 1;
+                        let dwx = Rcw11*dx + Rcw12*dy + Rcw13*dz;
+                        let dwy = Rcw21*dx + Rcw22*dy + Rcw23*dz;
+                        let dwz = Rcw31*dx + Rcw32*dy + Rcw33*dz;
+                        let color = 128;
+                        if (dwz !== 0) {
+                            let s = -Cwz / dwz;
+                            if (s > 0) {
+                                let X = Cwx + s * dwx;
+                                let Y = Cwy + s * dwy;
+                                if (X >= x_min && X <= x_max && Y >= y_min && Y <= y_max) {
+                                    // cells indexed using floor instead of round
+                                    let xi = Math.floor((X - x_min) / bw);
+                                    let yi = Math.floor((Y - y_min) / bh);
+                                    color = ((xi + yi) % 2 === 0) ? 255 : 0;
+                                }
+                            }
+                        }
+                        let idx = (v * width + u) * 4;
+                        data[idx] = color;
+                        data[idx+1] = color;
+                        data[idx+2] = color;
+                        data[idx+3] = 255;
+                    }
                 }
-                ctx.beginPath();
-                ctx.arc(u, v, 3, 0, 2 * Math.PI);
-                ctx.fill();
-            });
+                ctx.putImageData(img, 0, 0);
+            }
+            
+            if (showCircles)
+            {
+                // overlay filled circles on corners if requested
+                objp.forEach(p3d => {
+                    let [u, v, zc] = projectPoint(p3d);
+                    if (zc > 0)
+                    {
+                        ctx.fillStyle = "red";
+                    }
+                    else
+                    {
+                        ctx.fillStyle = "blue";
+                    }
+                    ctx.beginPath();
+                    ctx.arc(u, v, 3, 0, 2 * Math.PI);
+                    ctx.fill();
+                });
+            }
+        }
+
+        // apply distortion model (pinhole radial+tangential or 2D fisheye)
+        // to normalized coordinates, returning distorted normalized coordinates
+        function applyDistortion(x, y) {
+            if (fisheye) {
+                let r = Math.sqrt(x*x + y*y);
+                if (r > 0) {
+                    let theta1 = Math.atan2(r, 1);
+                    let theta2 = theta1 * theta1;
+                    let theta3 = theta2 * theta1;
+                    let theta5 = theta2 * theta3;
+                    let theta7 = theta2 * theta5;
+                    let theta9 = theta2 * theta7;
+                    let theta_d = theta1 + k1 * theta3 + k2 * theta5 + k3 * theta7 + k4 * theta9;
+                    x = (theta_d / r) * x;
+                    y = (theta_d / r) * y;
+                }
+            } else {
+                let r2 = x*x + y*y;
+                let r4 = r2 * r2;
+                let r6 = r4 * r2;
+                let radial = (1 + k1*r2 + k2*r4 + k3*r6) / (1 + k4*r2 + k5*r4 + k6*r6);
+                let dtx = 2 * p1 * x * y + p2 * (r2 + 2 * x * x);
+                let dty = p1 * (r2 + 2 * y * y) + 2 * p2 * x * y;
+                x = x * radial + dtx;
+                y = y * radial + dty;
+            }
+            return [x, y];
+        }
+
+        // solve for undistorted normalized coordinates given a distorted one
+        // uses iterative fixed-point method with configurable convergence criteria
+        function undistortNormalized(xDist, yDist, maxIter = 3e1, eps = 1e-3) {
+            let x = xDist, y = yDist;
+            for (let i = 0; i < maxIter; i++) {
+                let [xp, yp] = applyDistortion(x, y);
+                let dx = xDist - xp;
+                let dy = yDist - yp;
+                x += dx;
+                y += dy;
+                if (dx*dx + dy*dy < eps*eps) break;
+            }
+            return [x, y];
+        }
+
+        function updateUndistortTable() {
+            // build a table of undistorted normalized ray slopes (dx,dy).
+            // this only depends on the intrinsics and distortion coefficients
+            // so it can be reused while extrinsic/board parameters change.
+            let width = canvas.width, height = canvas.height;
+            let size = width * height;
+            let dx = new Float32Array(size);
+            let dy = new Float32Array(size);
+
+            for (let v = 0; v < height; v++) {
+                for (let u = 0; u < width; u++) {
+                    let ud = u * iw / width;
+                    let vd = v * ih / height;
+                    let xDist = (ud - cx) / fx;
+                    let yDist = (vd - cy) / fy;
+                    let [xu, yu] = undistortNormalized(xDist, yDist);
+                    let idx = v * width + u;
+                    dx[idx] = xu;
+                    dy[idx] = yu;
+                }
+            }
+
+            undistortTable = {dx, dy, width, height};
         }
 
         function updateValuesFromSlider(id)
@@ -386,6 +525,15 @@
                 case 'bw': bw = value; update_objp(); break;
                 case 'bh': bh = value; update_objp(); break;
             }
+
+            // parameters that affect undistortion should rebuild the table
+            const rebuildIds = ['iw','ih','fx','fy','cx','cy',
+                                'k1','k2','k3','k4','k5','k6',
+                                'p1','p2'];
+            if (rebuildIds.includes(id) && showSquares) {
+                updateUndistortTable();
+            }
+
             drawPoints();
         }
 
@@ -406,6 +554,8 @@
             document.getElementById('cy').max = ih;
             canvas.height = ih * canvas_w / iw;
         }
+        // bc and br denote the number of inner corners of the board.  
+        // The chessboard therefore has (bc-1) by (br-1) cells.
         function update_objp()
         {
             objp = [];
@@ -423,29 +573,6 @@
                 }
             }
         }
-
-        // Web assembly
-        // function startTask() {
-        //     fetch('/start-task', { method: 'POST' })
-        //         .then(response => response.json())
-        //         .then(data => {
-        //             if (data.status === "Task started") {
-        //                 updateProgress();
-        //             }
-        //         });
-        // }
-        // function updateProgress() {
-        //     fetch('/progress')
-        //         .then(response => response.json())
-        //         .then(data => {
-        //             document.getElementById('progress-bar-fill').style.width = data.progress + '%';
-        //             document.getElementById('progress-bar-fill').innerText = data.progress + '%';
-
-        //             if (data.progress < 100) {
-        //                 setTimeout(updateProgress, 500);
-        //             }
-        //         });
-        // }
 
         // Intrinsics
         document.getElementById('iw').addEventListener('input', function() { updateValuesFromSlider('iw'); });
@@ -480,6 +607,7 @@
         document.getElementById('k6Text').addEventListener('input', function() { updateValuesFromTextBox('k6'); });
         document.getElementById('fisheye').addEventListener('input', function() {
             fisheye = this.checked;
+            if (showSquares) updateUndistortTable();
             drawPoints();
         });
 
@@ -529,12 +657,22 @@
             update_objp();
             drawPoints();
         });
+        document.getElementById('showSquares').addEventListener('input', function() {
+            showSquares = this.checked;
+            if (showSquares) updateUndistortTable();
+            drawPoints();
+        });
+        document.getElementById('showCircles').addEventListener('input', function() {
+            showCircles = this.checked;
+            drawPoints();
+        });
 
         // Reset
         document.getElementById('reset').addEventListener('click', () => location.reload());
 
         objp = [];
         update_objp();
+        if (showSquares) updateUndistortTable();
         drawPoints(); // Initial draw
     </script>
 </body>
