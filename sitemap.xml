@@ -1,0 +1,502 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset
+      xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
+            http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+<!-- created with Free Online Sitemap Generator www.xml-sitemaps.com -->
+
+
+<url>
+  <loc>https://github.com/Roxign/CamLab</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>1.00</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/activity</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/issues</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/pulls</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/security</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/blob/main/README.md</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/blob/main/index.html</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/releases</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/search?q=repo%3ARoxign%2FCamLab++language%3AHTML</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/labels</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/milestones</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/workflows/pages/pages-build-deployment</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/caches</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22524483718</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22524478767</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22524313021</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22524212107</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22524177788</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22524138168</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22521795374</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22501647509</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22496733624</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22496559119</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22488673042</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22488656015</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22488450332</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/milestones?state=closed</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/caches?query=sort%3Aaccessed-desc</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/caches?query=sort%3Aaccessed-asc</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/caches?query=sort%3Acreated-desc</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/caches?query=sort%3Acreated-asc</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/caches?query=sort%3Asize-desc</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/caches?query=sort%3Asize-asc</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/commit/bc84530d9e9f8cf87db4d1e516cc8a97e609f3ce</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22524483718/usage</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22524483718/job/65254310455</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22524483718/job/65254323092</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22524483718/job/65254323091</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/commit/e9c36756e55555077a5fb8096f3e6dae47dd70f3</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22524478767/usage</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22524478767/job/65254296337</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22524478767/job/65254310370</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22524478767/job/65254310376</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/commit/7f3c10b5b1cf2b83881f9ae5b3602457e76e4d33</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22524313021/usage</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22524313021/job/65253895096</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22524313021/job/65253912815</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22524313021/job/65253912833</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22524212107/usage</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22524212107/job/65253636194</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22524212107/job/65253649888</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22524212107/job/65253649894</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/commit/e721ab37f47a26bbb023017e65ff8b48be439b0f</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22524177788/usage</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22524177788/job/65253538998</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22524177788/job/65253555667</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22524177788/job/65253555676</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22524138168/usage</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22524138168/job/65253434154</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22524138168/job/65253451240</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22524138168/job/65253451238</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/commit/cbbb4fd92fdba219d14bc7dbc9c7403b865ef5dc</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22521795374/usage</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22521795374/job/65247676405</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22521795374/job/65247691700</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22521795374/job/65247691687</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/commit/ecb3e7bbe78a0174b2231556f5755d4c8f4399f2</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22501647509/usage</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22501647509/job/65189972473</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22501647509/job/65190018754</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22501647509/job/65190018739</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/commit/921f258da130daab73321b9187874fe041497409</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22496733624/usage</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22496733624/job/65173146238</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22496733624/job/65173188767</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22496733624/job/65173188783</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/commit/5198be0010c3827435e75cc05013b28fd8ce2078</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22496559119/usage</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22496559119/job/65172549921</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22496559119/job/65172594437</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22496559119/job/65172594341</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/commit/8032480f5bb3df8a0829850f98a9d298418f5839</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22488673042/usage</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22488673042/job/65144732425</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22488673042/job/65144780265</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22488673042/job/65144780236</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/commit/bb02d9c408ca120d078048f6a043c145cb89c4af</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22488656015/usage</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22488656015/job/65144669221</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22488656015/job/65144712673</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22488656015/job/65144712679</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/commit/f56e4421856cd2aaf756a30a6f8adcf822b87510</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22488450332/usage</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22488450332/job/65143954987</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22488450332/job/65143992036</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/actions/runs/22488450332/job/65143992031</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.51</priority>
+</url>
+<url>
+  <loc>https://github.com/Roxign/CamLab/commit/fd587ff9c9051211ea33455c1f588decf05dadae</loc>
+  <lastmod>2026-02-28T16:32:48+00:00</lastmod>
+  <priority>0.41</priority>
+</url>
+
+
+</urlset>
