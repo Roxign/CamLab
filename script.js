@@ -5,7 +5,7 @@ const ctx = canvas.getContext('2d');
 let canvas_w = 640, canvas_h = 360;
 let iw = 1920, ih = 1080, fx = 1000, fy = 1000, cx = 960, cy = 540;
 let k1 = 0, k2 = 0, p1 = 0, p2 = 0, k3 = 0, k4 = 0, k5 = 0, k6 = 0, fisheye = false;
-let bc = 12, br = 9, bw = 100, bh = 100, center = true, showSquares = true, showCircles = true;
+let bc = 12, br = 9, bw = 100, bh = 100, center = true, showSquares = false, showCircles = true;
 let rx_wc = 0, ry_wc = 0, rz_wc = 0, tx_wc = 0, ty_wc = 0, tz_wc = 1000;
 let rx_cw = 0, ry_cw = 0, rz_cw = 0, tx_cw = 0, ty_cw = 0, tz_cw = -1000;
 let inverse = false;
