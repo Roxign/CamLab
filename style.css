@@ -37,6 +37,29 @@ body {
     font-weight: bold;
 }
 
+.extrinsic-header-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.extrinsic-mode-row {
+    display: flex;
+    flex-direction: row;
+    gap: 6px;
+}
+
+.extrinsic-mode-row button {
+    height: 24px;
+    font-size: 12px;
+}
+
+.extrinsic-mode-row button.active {
+    font-weight: bold;
+}
+
 .curve-axis-options {
     display: flex;
     flex-direction: column;

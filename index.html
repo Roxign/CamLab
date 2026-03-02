@@ -143,8 +143,12 @@
         <div class="column">
 
             <!-- Extrinsic -->
-            <div>
+            <div class="extrinsic-header-row">
                 <label style="font-family: 'sans-serif'; font-weight: bold; font-size: 20px;">Extrinsic:</label>
+                <div class="extrinsic-mode-row">
+                    <button id="world2cam" type="button" class="active">world2cam</button>
+                    <button id="cam2world" type="button">cam2world</button>
+                </div>
             </div>
             <div>
                 <label for="rx">r<sub>x</sub></label>
@@ -176,11 +180,6 @@
                 <input type="text" id="tzText" value="1000">
                 <input type="range" id="tz" name="tz" min="-10000" max="10000" value="1000">
             </div>
-            <div>
-                <label for="inverse">↻</label>
-                <input type="checkbox" id="inverse" name="inverse">
-            </div>
-
             <!-- Chessboard -->
             <div>
                 <label style="font-family: 'sans-serif'; font-weight: bold; font-size: 20px;">Chessboard:</label>
