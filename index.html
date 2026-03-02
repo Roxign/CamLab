@@ -11,8 +11,42 @@
 <body>
     <div class="column">
         <!-- <h1 style="text-align: center;">Camera Intrinsic & Distortion Visualization</h1> -->
-        <label style="text-align: center; font-family: 'sans-serif'; font-weight: bold; font-size: 32px;">Camera Intrinsic & Distortion Visualization</label>
-        <canvas id="canvas" width="640" height="360"></canvas>
+        <div class="view-toggle-row">
+            <button id="viewChessboard" type="button">Chessboard View</button>
+            <button id="viewCurve" type="button">Distortion Curve</button>
+        </div>
+        <div class="canvas-stack">
+            <canvas id="canvas" width="640" height="360"></canvas>
+            <canvas id="curveCanvas" class="hidden" width="640" height="480"></canvas>
+        </div>
+        <div class="curve-axis-options" id="curveAxisOptions">
+            <div class="axis-group">
+                <span>X type:</span>
+                <label><input type="radio" name="curveXType" value="angle" checked> incoming ray angle</label>
+                <label><input type="radio" name="curveXType" value="slope"> incoming ray slope</label>
+            </div>
+            <div class="axis-group" id="curveXUnitGroup">
+                <span>X unit:</span>
+                <label><input type="radio" name="curveXUnit" value="deg" checked> deg</label>
+                <label><input type="radio" name="curveXUnit" value="rad"> rad</label>
+            </div>
+            <div class="axis-group">
+                <span>Y type:</span>
+                <label><input type="radio" name="curveYType" value="angle" checked> reflected ray angle</label>
+                <label><input type="radio" name="curveYType" value="slope"> reflected ray slope</label>
+                <label><input type="radio" name="curveYType" value="height"> image height</label>
+            </div>
+            <div class="axis-group" id="curveYUnitGroup">
+                <span>Y unit:</span>
+                <label><input type="radio" name="curveYUnit" value="deg" checked> deg</label>
+                <label><input type="radio" name="curveYUnit" value="rad"> rad</label>
+                <label><input type="radio" name="curveYUnit" value="pixel"> pixel</label>
+                <label><input type="radio" name="curveYUnit" value="um"> um</label>
+                <label><input type="radio" name="curveYUnit" value="mm"> mm</label>
+                <label><input type="radio" name="curveYUnit" value="cm"> cm</label>
+                <label><input type="radio" name="curveYUnit" value="m"> m</label>
+            </div>
+        </div>
     </div>
     <div class="controls">
         <div class="column">
@@ -50,6 +84,11 @@
                 <label for="cy">c<sub>y</sub></label>
                 <input type="text" id="cyText" value="540">
                 <input type="range" id="cy" name="cy" min="0" max="1080" value="540">
+            </div>
+            <div class="fov-row" id="fovRow">
+                <span id="hFovLabel">hFOV: 0.00°</span>
+                <span id="vFovLabel">vFOV: 0.00°</span>
+                <span id="dFovLabel">dFOV: 0.00°</span>
             </div>
 
             <!-- Distortion -->
@@ -183,6 +222,7 @@
             <button id="reset">Reset</button>
         </div>
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="script.js"></script>
 </body>
 

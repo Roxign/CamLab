@@ -1,14 +1,59 @@
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
+const chessCanvas = document.getElementById('canvas');      // main canvas for rendering the chessboard and corners, using the undistortion table to determine pixel colors for the chessboard squares and projecting 3D corner points based on current extrinsic parameters. This canvas is shown when "Chessboard" view is active.
+const chessCtx = chessCanvas.getContext('2d');
+const curveCanvas = document.getElementById('curveCanvas'); // canvas for rendering the distortion curve using Chart.js, which plots the relationship between the incoming ray angle/slope and the reflected ray angle/slope based on the current distortion parameters. This canvas is shown when "Distortion Curve" view is active. It is initialized lazily when switching to curve view for the first time, since rendering the curve can be computationally expensive and we want to avoid doing it unnecessarily if the user only wants to see the chessboard.
+const curveCtx = curveCanvas.getContext('2d');
+
+let curveChart = null;  // Chart.js instance for the distortion curve, initialized lazily when switching to curve view for the first time
+let undistortTable = null;
+
+const viewChessboardBtn = document.getElementById('viewChessboard');
+const viewCurveBtn = document.getElementById('viewCurve');
+const curveAxisOptions = document.getElementById('curveAxisOptions');
+const curveXUnitGroup = document.getElementById('curveXUnitGroup');
+const curveYUnitGroup = document.getElementById('curveYUnitGroup');
+const hFovLabel = document.getElementById('hFovLabel');
+const vFovLabel = document.getElementById('vFovLabel');
+const dFovLabel = document.getElementById('dFovLabel');
+const curveXTypeOptions = document.querySelectorAll('input[name="curveXType"]');
+const curveXUnitOptions = document.querySelectorAll('input[name="curveXUnit"]');
+const curveYTypeOptions = document.querySelectorAll('input[name="curveYType"]');
+const curveYUnitOptions = document.querySelectorAll('input[name="curveYUnit"]');
 
 // Initial Parameters
-let canvas_w = 640, canvas_h = 360;
+let canvas_w = 640;
 let iw = 1920, ih = 1080, fx = 1000, fy = 1000, cx = 960, cy = 540;
 let k1 = 0, k2 = 0, p1 = 0, p2 = 0, k3 = 0, k4 = 0, k5 = 0, k6 = 0, fisheye = false;
 let bc = 12, br = 9, bw = 100, bh = 100, center = true, showSquares = false, showCircles = true;
 let rx_wc = 0, ry_wc = 0, rz_wc = 0, tx_wc = 0, ty_wc = 0, tz_wc = 1000;
 let rx_cw = 0, ry_cw = 0, rz_cw = 0, tx_cw = 0, ty_cw = 0, tz_cw = -1000;
 let inverse = false;
+// active view target: chessboard canvas or distortion curve chart canvas
+let viewMode = 'chessboard';
+let curveXType = 'angle';
+let curveXUnit = 'deg';
+let curveYType = 'angle';
+let curveYUnit = 'deg';
+let objp = [];
+
+function updateViewControls() {
+    if (viewMode === 'chessboard') {
+        viewChessboardBtn.classList.add('active');
+        viewCurveBtn.classList.remove('active');
+        curveAxisOptions.classList.add('hidden');
+        chessCanvas.classList.remove('hidden');
+        curveCanvas.classList.add('hidden');
+        chessCanvas.style.display = 'block';
+        curveCanvas.style.display = 'none';
+    } else {
+        viewCurveBtn.classList.add('active');
+        viewChessboardBtn.classList.remove('active');
+        curveAxisOptions.classList.remove('hidden');
+        curveCanvas.classList.remove('hidden');
+        chessCanvas.classList.add('hidden');
+        curveCanvas.style.display = 'block';
+        chessCanvas.style.display = 'none';
+    }
+}
 
 // Helper to convert Euler angles (in radians) to a rotation matrix (row-major order)
 function eulerAnglesToRotationMatrix(rx, ry, rz) {
@@ -82,15 +127,15 @@ function projectPoint(p3d) {
     let zc = R31 * xw + R32 * yw + R33 * zw + tz_wc;
 
     // normalize and apply distortion
-    [xp, yp] = applyDistortion(xc, yc, zc);
+    let [xp, yp] = applyDistortion(xc, yc, zc);
 
     // apply intrinsics
     let u = fx * xp + cx;
     let v = fy * yp + cy;
 
     // scale to canvas size (this allows the intrinsic parameters to be specified in terms of an arbitrary image size, independent of the canvas display size)
-    u = u * canvas.width / iw;
-    v = v * canvas.height / ih;
+    u = u * chessCanvas.width / iw;
+    v = v * chessCanvas.height / ih;
     return [u, v, zc];
 }
 
@@ -219,7 +264,7 @@ function undistortNormalized(xDist, yDist, options = {}) {
 
 // precompute the undistortion table for each pixel in the canvas. This allows us to quickly look up the corresponding undistorted ray direction for each pixel when rendering the chessboard squares, without having to run the iterative undistortion process for every pixel on every frame. The table is updated whenever the intrinsics or distortion parameters change, since those affect the mapping from distorted image coordinates to undistorted ray directions.
 function updateUndistortTable() {
-    let width = canvas.width, height = canvas.height;
+    let width = chessCanvas.width, height = chessCanvas.height;
     let size = width * height;
     let dx = new Float32Array(size);
     let dy = new Float32Array(size);
@@ -239,21 +284,15 @@ function updateUndistortTable() {
 }
 
 // render the chessboard and corners based on current parameters. If "showSquares" is enabled, it uses the undistortion table to determine the color of each pixel by raycasting from the camera through the distorted image plane into the world to see what color it hits on the chessboard. If "showCircles" is enabled, it projects the 3D corner points and draws filled circles at their locations, colored red if they are in front of the camera and blue if they are behind, which helps visualize how the extrinsic parameters affect the projection of points in space.
-function drawPoints() {
-    // clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+function renderChessboard() {
+    chessCtx.clearRect(0, 0, chessCanvas.width, chessCanvas.height);
 
-    // if enabled, use the undistortion table to determine the color of each pixel based on whether the corresponding ray intersects a white or black square on the chessboard. This visualizes the effect of the intrinsics and distortion on the mapping from camera rays to the world plane.
     if (showSquares) {
-        // create a fresh image buffer and fill it using the slopes
-        let width = canvas.width, height = canvas.height;
-        let img = ctx.getImageData(0, 0, width, height);
+        let width = chessCanvas.width, height = chessCanvas.height;
+        let img = chessCtx.getImageData(0, 0, width, height);
         let data = img.data;
 
-        // compute rotation matrix once and reuse (camera->world case)
         let [R11, R12, R13, R21, R22, R23, R31, R32, R33] = eulerAnglesToRotationMatrix(rx_cw, ry_cw, rz_cw);
-
-        // precompute the world coordinate bounds of the chessboard for ray intersection tests, based on the current board parameters. The board is centered on the origin by default, but can be shifted by unchecking "center".
         let x_min = center ? -(bc + 1) / 2 : -1;
         let x_max = center ? (bc + 1) / 2 : bc;
         let y_min = center ? -(br + 1) / 2 : -1;
@@ -261,68 +300,359 @@ function drawPoints() {
         x_min *= bw; x_max *= bw;
         y_min *= bh; y_max *= bh;
 
-        // for each pixel, use the undistortion table to get the corresponding ray direction in camera space, rotate it into world space, and check if it intersects the chessboard plane within a white or black square. This is effectively raycasting from the camera through the distorted image plane into the world to see what color it hits on the chessboard.
         for (let v = 0; v < height; v++) {
             for (let u = 0; u < width; u++) {
-                // get the undistorted ray direction for this pixel from the precomputed table
                 let idx = v * width + u;
                 let dx = undistortTable.dx[idx];
                 let dy = undistortTable.dy[idx];
                 let dz = 1;
 
-                // rotate the ray direction from camera space to world space using the camera->world rotation matrix, and then compute the intersection with the chessboard plane (z=0 in world coordinates) to determine the corresponding point on the chessboard that this pixel maps to. Then check if that point is within the bounds of the chessboard and whether it falls on a white or black square to determine the pixel color.
                 let dwx = R11 * dx + R12 * dy + R13 * dz;
                 let dwy = R21 * dx + R22 * dy + R23 * dz;
                 let dwz = R31 * dx + R32 * dy + R33 * dz;
 
-                // ray-plane intersection to find where the ray from the camera through this pixel hits the chessboard plane (z=0 in world coordinates). The ray can be parameterized as (tx_cw, ty_cw, tz_cw) + s * (dwx, dwy, dwz), and we want to find s such that the z component is 0, which gives us the intersection point in world coordinates. We then check if that point is within the bounds of the chessboard and determine its color.
                 if (dwz !== 0) {
-                    // solve for s where the ray intersects the plane z=0: tz_cw + s * dwz = 0 => s = -tz_cw / dwz. We only consider intersections in front of the camera (s > 0) to avoid coloring pixels based on rays that go backwards through the camera. Then we compute the intersection point (X, Y) in world coordinates and check if it falls within the chessboard bounds. If it does, we determine whether it's a white or black square based on its coordinates and set the pixel color accordingly.
                     let s = -tz_cw / dwz;
-
-                    // only consider intersections in front of the camera
                     if (s > 0) {
-                        // compute the intersection point in world coordinates
                         let X = tx_cw + s * dwx;
                         let Y = ty_cw + s * dwy;
-
-                        // check if the intersection point is within the bounds of the chessboard
                         if (X >= x_min && X <= x_max && Y >= y_min && Y <= y_max) {
-                            // determine if the intersection point falls on a white or black square by checking the integer coordinates of the square it falls into. The color alternates in a checkerboard pattern, so we can determine the color by summing the integer coordinates and checking if it's even or odd. We then set the pixel color to white (255) or black (0) accordingly.
                             let xi = Math.floor((X - x_min) / bw);
                             let yi = Math.floor((Y - y_min) / bh);
-                            color = ((xi + yi) % 2 === 0) ? 255 : 0;
-
-                            // set the pixel color in the image data buffer. The image data is a flat array where each pixel is represented by 4 consecutive values (R, G, B, A), so we multiply the pixel index by 4 to get the starting index for that pixel's color values. We set R, G, and B to the same value for grayscale, and A (alpha) to 255 for full opacity.
-                            idx = idx * 4;
-                            data[idx + 0] = color;
-                            data[idx + 1] = color;
-                            data[idx + 2] = color;
-                            data[idx + 3] = 255;
+                            let color = ((xi + yi) % 2 === 0) ? 255 : 0;
+                            let pixel = idx * 4;
+                            data[pixel + 0] = color;
+                            data[pixel + 1] = color;
+                            data[pixel + 2] = color;
+                            data[pixel + 3] = 255;
                         }
                     }
                 }
             }
         }
-        ctx.putImageData(img, 0, 0);
+        chessCtx.putImageData(img, 0, 0);
     }
 
-    // project and draw corners if enabled
     if (showCircles) {
-        // overlay filled circles on corners if requested
         objp.forEach(p3d => {
             let [u, v, zc] = projectPoint(p3d);
-            if (zc > 0) {
-                ctx.fillStyle = "red";
-            }
-            else {
-                ctx.fillStyle = "blue";
-            }
-            ctx.beginPath();
-            ctx.arc(u, v, 3, 0, 2 * Math.PI);
-            ctx.fill();
+            chessCtx.fillStyle = zc > 0 ? "red" : "blue";
+            chessCtx.beginPath();
+            chessCtx.arc(u, v, 3, 0, 2 * Math.PI);
+            chessCtx.fill();
         });
     }
+}
+
+function applyUnitOptionVisibility(optionList, allowedValues) {
+    optionList.forEach(option => {
+        const label = option.closest('label');
+        const show = allowedValues.includes(option.value);
+        if (label) {
+            label.classList.toggle('hidden', !show);
+            label.classList.toggle('disabled-option', !show);
+        }
+        option.disabled = !show;
+        if (!show && option.checked) {
+            option.checked = false;
+        }
+    });
+}
+
+function setUnitGroupDisabled(optionList, disabled) {
+    optionList.forEach(option => {
+        const label = option.closest('label');
+        if (label) {
+            label.classList.toggle('disabled-option', disabled);
+        }
+        option.disabled = disabled;
+    });
+}
+
+function updateFovDisplay() {
+    const toDeg = 180 / Math.PI;
+    const nearestU = Math.abs(cx - 0) <= Math.abs(iw - cx) ? 0 : iw;
+    const nearestV = Math.abs(cy - 0) <= Math.abs(ih - cy) ? 0 : ih;
+
+    const corners = [[0, 0], [iw, 0], [0, ih], [iw, ih]];
+    let nearestCorner = corners[0];
+    let nearestCornerDist2 = Number.POSITIVE_INFINITY;
+    corners.forEach(corner => {
+        const du = corner[0] - cx;
+        const dv = corner[1] - cy;
+        const d2 = du * du + dv * dv;
+        if (d2 < nearestCornerDist2) {
+            nearestCornerDist2 = d2;
+            nearestCorner = corner;
+        }
+    });
+
+    const [hx, hy] = undistortNormalized((nearestU - cx) / fx, (cy - cy) / fy);
+    const [vx, vy] = undistortNormalized((cx - cx) / fx, (nearestV - cy) / fy);
+    const [dx, dy] = undistortNormalized((nearestCorner[0] - cx) / fx, (nearestCorner[1] - cy) / fy);
+
+    const hFov = 2 * Math.atan(Math.abs(hx)) * toDeg;
+    const vFov = 2 * Math.atan(Math.abs(vy)) * toDeg;
+    const dFov = 2 * Math.atan(Math.hypot(dx, dy)) * toDeg;
+    hFovLabel.textContent = `hFOV: ${hFov.toFixed(2)}°`;
+    vFovLabel.textContent = `vFOV: ${vFov.toFixed(2)}°`;
+    dFovLabel.textContent = `dFOV: ${dFov.toFixed(2)}°`;
+}
+
+function syncCurveUnitVisibility() {
+    if (curveXType === 'angle') {
+        curveXUnitGroup.classList.remove('hidden');
+        applyUnitOptionVisibility(curveXUnitOptions, ['deg', 'rad']);
+        if (curveXUnit !== 'deg' && curveXUnit !== 'rad') {
+            curveXUnit = 'deg';
+            document.querySelector('input[name="curveXUnit"][value="deg"]').checked = true;
+        }
+    } else {
+        curveXUnitGroup.classList.add('hidden');
+        setUnitGroupDisabled(curveXUnitOptions, true);
+    }
+
+    if (curveYType === 'angle') {
+        curveYUnitGroup.classList.remove('hidden');
+        applyUnitOptionVisibility(curveYUnitOptions, ['deg', 'rad']);
+        if (curveYUnit !== 'deg' && curveYUnit !== 'rad') {
+            curveYUnit = 'deg';
+            document.querySelector('input[name="curveYUnit"][value="deg"]').checked = true;
+        }
+    } else if (curveYType === 'height') {
+        curveYUnitGroup.classList.remove('hidden');
+        applyUnitOptionVisibility(curveYUnitOptions, ['pixel', 'um', 'mm', 'cm', 'm']);
+        if (!['pixel', 'um', 'mm', 'cm', 'm'].includes(curveYUnit)) {
+            curveYUnit = 'pixel';
+            document.querySelector('input[name="curveYUnit"][value="pixel"]').checked = true;
+        }
+    } else {
+        curveYUnitGroup.classList.add('hidden');
+        setUnitGroupDisabled(curveYUnitOptions, true);
+    }
+}
+
+function outputSlopeToYAxisValue(outputSlope) {
+    if (curveYType === 'angle') {
+        if (curveYUnit === 'rad') {
+            return Math.atan(outputSlope);
+        }
+        return Math.atan(outputSlope) * 180 / Math.PI;
+    }
+
+    if (curveYType === 'height') {
+        switch (curveYUnit) {
+            case 'pixel':
+                return fy * outputSlope;
+            case 'um':
+                return outputSlope * 1e6;
+            case 'mm':
+                return outputSlope * 1e3;
+            case 'cm':
+                return outputSlope * 1e2;
+            case 'm':
+            default:
+                return outputSlope;
+        }
+    }
+
+    return outputSlope;
+}
+
+function getXAxisLabel() {
+    if (curveXType === 'angle') {
+        return curveXUnit === 'rad' ? 'incoming ray angle (rad)' : 'incoming ray angle (deg)';
+    }
+    return 'incoming ray slope (tanθ)';
+}
+
+function getYAxisLabel() {
+    if (curveYType === 'angle') {
+        return curveYUnit === 'rad' ? 'reflected ray angle (rad)' : 'reflected ray angle (deg)';
+    }
+    if (curveYType === 'height') {
+        return `image height (${curveYUnit})`;
+    }
+    return 'reflected ray slope (tanθ)';
+}
+
+function buildCurveSeriesData() {
+    const samples = 100;
+    const corners = [[0, 0], [iw, 0], [0, ih], [iw, ih]];
+    let farthestCorner = corners[0];
+    let farthestDist2 = Number.NEGATIVE_INFINITY;
+    corners.forEach(corner => {
+        const du = corner[0] - cx;
+        const dv = corner[1] - cy;
+        const d2 = du * du + dv * dv;
+        if (d2 > farthestDist2) {
+            farthestDist2 = d2;
+            farthestCorner = corner;
+        }
+    });
+
+    const xValues = [];
+    const yValues = [];
+    let xMin = Number.POSITIVE_INFINITY;
+    let xMax = Number.NEGATIVE_INFINITY;
+    let yMin = Number.POSITIVE_INFINITY;
+    let yMax = Number.NEGATIVE_INFINITY;
+
+    for (let i = 0; i < samples; i++) {
+        const t = samples === 1 ? 0 : i / (samples - 1);
+        const u = cx + (farthestCorner[0] - cx) * t;
+        const v = cy + (farthestCorner[1] - cy) * t;
+
+        const xDist = (u - cx) / fx;
+        const yDist = (v - cy) / fy;
+        const [xu, yu] = undistortNormalized(xDist, yDist);
+        const incomingSlope = Math.hypot(xu, yu);
+        const [xd, yd] = applyDistortion(xu, yu, 1);
+        const outputSlope = Math.hypot(xd, yd);
+
+        let xValue;
+        if (curveXType === 'angle') {
+            const angleRad = Math.atan(incomingSlope);
+            xValue = curveXUnit === 'rad' ? angleRad : angleRad * 180 / Math.PI;
+        } else {
+            xValue = incomingSlope;
+        }
+
+        const yValue = outputSlopeToYAxisValue(outputSlope);
+
+        if (isFinite(xValue) && isFinite(yValue)) {
+            xValues.push(xValue);
+            yValues.push(yValue);
+            xMin = Math.min(xMin, xValue);
+            xMax = Math.max(xMax, xValue);
+            yMin = Math.min(yMin, yValue);
+            yMax = Math.max(yMax, yValue);
+        }
+    }
+
+    return { xValues, yValues, xMin, xMax, yMin, yMax };
+}
+
+function ensureCurveChart() {
+    if (curveChart) return;
+    curveChart = new Chart(curveCtx, {
+        type: 'line',
+        plugins: [{
+            id: 'topRightPlotBorder',
+            afterDraw(chart) {
+                const { ctx, chartArea } = chart;
+                if (!chartArea) return;
+                ctx.save();
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(chartArea.left, chartArea.top + 0.5);
+                ctx.lineTo(chartArea.right, chartArea.top + 0.5);
+                ctx.moveTo(chartArea.right - 0.5, chartArea.top);
+                ctx.lineTo(chartArea.right - 0.5, chartArea.bottom);
+                ctx.stroke();
+                ctx.restore();
+            }
+        }],
+        data: {
+            datasets: [{
+                label: 'Distortion',
+                data: [],
+                borderColor: '#0b63f6',
+                borderWidth: 2,
+                pointRadius: 0,
+                tension: 0
+            }]
+        },
+        options: {
+            animation: false,
+            responsive: false,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                x: {
+                    type: 'linear',
+                    title: {
+                        display: true,
+                        text: getXAxisLabel(),
+                        color: '#000000'
+                    },
+                    border: { color: '#000000', width: 1 },
+                    grid: {
+                        color: '#b0b0b0',
+                        drawTicks: true,
+                        tickLength: -4
+                    },
+                    ticks: {
+                        color: '#000000',
+                        maxTicksLimit: 16,
+                        includeBounds: false,
+                        padding: 8
+                    }
+                },
+                y: {
+                    type: 'linear',
+                    title: {
+                        display: true,
+                        text: getYAxisLabel(),
+                        color: '#000000'
+                    },
+                    border: { color: '#000000', width: 1 },
+                    grid: {
+                        color: '#b0b0b0',
+                        drawTicks: true,
+                        tickLength: -4
+                    },
+                    ticks: {
+                        color: '#000000',
+                        maxTicksLimit: 12,
+                        includeBounds: false,
+                        padding: 8
+                    }
+                }
+            }
+        }
+    });
+}
+
+function refreshCurveChart() {
+    ensureCurveChart();
+    const { xValues, yValues, xMin: rawXMin, xMax: rawXMax, yMin: rawYMin, yMax: rawYMax } = buildCurveSeriesData();
+
+    let xMin = rawXMin;
+    let xMax = rawXMax;
+    let yMin = rawYMin;
+    let yMax = rawYMax;
+
+    if (!isFinite(xMin) || !isFinite(xMax) || xMin === xMax) {
+        xMin = 0;
+        xMax = 1;
+    }
+
+    if (!isFinite(yMin) || !isFinite(yMax) || yMin === yMax) {
+        yMin = 0;
+        yMax = 1;
+    }
+
+    const xPad = (xMax - xMin) * 0.05 || 0.05;
+    xMin -= xPad;
+    xMax += xPad;
+    const yPad = (yMax - yMin) * 0.1 || 0.1;
+    yMin -= yPad;
+    yMax += yPad;
+
+    const points = xValues.map((x, index) => ({ x, y: yValues[index] }));
+
+    curveChart.data.datasets[0].data = points;
+    curveChart.options.scales.x.min = xMin;
+    curveChart.options.scales.x.max = xMax;
+    curveChart.options.scales.y.min = yMin;
+    curveChart.options.scales.y.max = yMax;
+    curveChart.options.scales.x.title.text = getXAxisLabel();
+    curveChart.options.scales.y.title.text = getYAxisLabel();
+    curveChart.update('none');
 }
 
 // helper function to update parameter values and trigger a redraw when a slider or text box is changed. It takes the id of the parameter that was changed, updates the corresponding variable, and then calls drawPoints() to update the visualization. This function is called by both the slider and text box event handlers to keep them in sync and ensure that changes to either control update the parameter and redraw the scene.
@@ -461,7 +791,12 @@ function updateParameter(id, value) {
     // parameters that affect undistortion should rebuild the table
     const rebuildIds = ['iw', 'ih', 'fx', 'fy', 'cx', 'cy', 'k1', 'k2', 'k3', 'k4', 'k5', 'k6', 'p1', 'p2'];
     if (rebuildIds.includes(id) && showSquares) { updateUndistortTable(); }
-    drawPoints();
+    updateFovDisplay();
+    if (viewMode === 'chessboard') {
+        renderChessboard();
+    } else {
+        refreshCurveChart();
+    }
 }
 
 // update cx and canvas size when iw changes, keeping cx in the center by default. This function is called whenever the image width (iw) parameter is changed, and it updates the principal point cx to be at the center of the new image width by default. It also updates the maximum value of the cx slider to match the new image width, and resizes the canvas accordingly to maintain the correct aspect ratio based on the new image dimensions.
@@ -470,8 +805,22 @@ function update_iw() {
     document.getElementById('cx').value = cx;
     document.getElementById('cxText').value = cx;
     document.getElementById('cx').max = iw;
-    canvas.width = iw * canvas_w / iw;
-    canvas.height = ih * canvas_w / iw;
+
+    const chessboardWidth = canvas_w;
+    const chessboardHeight = ih * canvas_w / iw;
+    chessCanvas.width = iw * canvas_w / iw;
+    chessCanvas.height = chessboardHeight;
+
+    if (viewMode === 'curve') {
+        const curveCanvasHeight = canvas_w * 3 / 4;
+        curveCanvas.width = canvas_w;
+        curveCanvas.height = curveCanvasHeight;
+        curveCanvas.style.width = `${canvas_w}px`;
+        curveCanvas.style.height = `${curveCanvasHeight}px`;
+        if (curveChart) {
+            curveChart.resize();
+        }
+    }
 }
 
 // update cy and canvas size when ih changes, keeping cy in the center by default. This function is called whenever the image height (ih) parameter is changed, and it updates the principal point cy to be at the center of the new image height by default. It also updates the maximum value of the cy slider to match the new image height, and resizes the canvas accordingly to maintain the correct aspect ratio based on the new image dimensions.
@@ -480,7 +829,20 @@ function update_ih() {
     document.getElementById('cy').value = cy;
     document.getElementById('cyText').value = cy;
     document.getElementById('cy').max = ih;
-    canvas.height = ih * canvas_w / iw;
+
+    chessCanvas.width = canvas_w;
+    chessCanvas.height = ih * canvas_w / iw;
+
+    if (viewMode === 'curve') {
+        const curveCanvasHeight = canvas_w * 3 / 4;
+        curveCanvas.width = canvas_w;
+        curveCanvas.height = curveCanvasHeight;
+        curveCanvas.style.width = `${canvas_w}px`;
+        curveCanvas.style.height = `${curveCanvasHeight}px`;
+        if (curveChart) {
+            curveChart.resize();
+        }
+    }
 }
 
 // recompute the 3D coordinates of the chessboard corners based on the current board parameters (number of corners, square size, and centering). This function is called whenever any of the chessboard parameters (number of columns, number of rows, square width, square height) are changed, and it updates the objp array with the new 3D coordinates of the corners. The corners are arranged in a grid pattern based on the specified number of columns and rows, with spacing determined by the square size parameters. If "center" is enabled, the grid is centered around the origin; otherwise, it starts from (0,0).
@@ -531,7 +893,12 @@ document.getElementById('k6Text').addEventListener('input', function () { update
 document.getElementById('fisheye').addEventListener('input', function () {
     fisheye = this.checked;
     if (showSquares) updateUndistortTable();
-    drawPoints();
+    updateFovDisplay();
+    if (viewMode === 'chessboard') {
+        renderChessboard();
+    } else {
+        refreshCurveChart();
+    }
 });
 
 // Extrinsic
@@ -550,7 +917,9 @@ document.getElementById('tzText').addEventListener('input', function () { update
 document.getElementById('inverse').addEventListener('input', function () {
     inverse = this.checked;
     updateExtrinsicControls();
-    drawPoints();
+    if (viewMode === 'chessboard') {
+        renderChessboard();
+    }
 });
 
 // Chessboard
@@ -584,28 +953,85 @@ document.getElementById('center').addEventListener('input', function () {
 
     center = this.checked;
     update_objp();
-    drawPoints();
+    if (viewMode === 'chessboard') {
+        renderChessboard();
+    }
 });
 document.getElementById('showSquares').addEventListener('input', function () {
     showSquares = this.checked;
     if (showSquares) updateUndistortTable();
-    drawPoints();
+    if (viewMode === 'chessboard') {
+        renderChessboard();
+    }
 });
 document.getElementById('showCircles').addEventListener('input', function () {
     showCircles = this.checked;
-    drawPoints();
+    if (viewMode === 'chessboard') {
+        renderChessboard();
+    }
+});
+
+viewChessboardBtn.addEventListener('click', function () {
+    viewMode = 'chessboard';
+    renderChessboard();
+    updateViewControls();
+});
+
+viewCurveBtn.addEventListener('click', function () {
+    viewMode = 'curve';
+    refreshCurveChart();
+    updateViewControls();
+});
+
+curveXTypeOptions.forEach(option => {
+    option.addEventListener('input', function () {
+        curveXType = this.value;
+        syncCurveUnitVisibility();
+        refreshCurveChart();
+    });
+});
+
+curveXUnitOptions.forEach(option => {
+    option.addEventListener('input', function () {
+        curveXUnit = this.value;
+        refreshCurveChart();
+    });
+});
+
+curveYTypeOptions.forEach(option => {
+    option.addEventListener('input', function () {
+        curveYType = this.value;
+        syncCurveUnitVisibility();
+        refreshCurveChart();
+    });
+});
+
+curveYUnitOptions.forEach(option => {
+    option.addEventListener('input', function () {
+        curveYUnit = this.value;
+        refreshCurveChart();
+    });
 });
 
 // Reset
 document.getElementById('reset').addEventListener('click', () => location.reload());
 
 // initialize 3D corner points of the chessboard based on initial parameters
-objp = [];
 update_objp();
+update_iw();
+update_ih();
+const initialCurveCanvasHeight = canvas_w * 3 / 4;
+curveCanvas.width = canvas_w;
+curveCanvas.height = initialCurveCanvasHeight;
+curveCanvas.style.width = `${canvas_w}px`;
+curveCanvas.style.height = `${initialCurveCanvasHeight}px`;
 
 // undistortion lookup table when showing squares
-let undistortTable = null;
 if (showSquares) updateUndistortTable();
 
+updateViewControls();
+syncCurveUnitVisibility();
+updateFovDisplay();
+
 // initial draw
-drawPoints();
+renderChessboard();
