@@ -18,10 +18,6 @@ const curveXUnitOptions = document.querySelectorAll('input[name="curveXUnit"]');
 const curveYTypeOptions = document.querySelectorAll('input[name="curveYType"]');
 const curveYUnitOptions = document.querySelectorAll('input[name="curveYUnit"]');
 
-const hFovLabel = document.getElementById('hFovLabel');
-const vFovLabel = document.getElementById('vFovLabel');
-const dFovLabel = document.getElementById('dFovLabel');
-
 // Initial Parameters
 let rx_wc = 0, ry_wc = 0, rz_wc = 0, tx_wc = 0, ty_wc = 0, tz_wc = 1000;
 let rx_cw = 0, ry_cw = 0, rz_cw = 0, tx_cw = 0, ty_cw = 0, tz_cw = -1000;
@@ -73,14 +69,7 @@ function getCurveOptions() {
     ];
 }
 
-function isChessboardView() {
-    return viewChessboardBtn.classList.contains('active');
-}
-
-function invalidateUndistortTable() {
-    chessCanvas._undistortTable = null;
-    chessCanvas._undistortTableKey = '';
-}
+chessCanvas._undistortTable = null;
 
 function updateViewControls(mode) {
     if (mode === 'chessboard') {
@@ -337,20 +326,6 @@ function updateUndistortTable(iw, ih, fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, k5
     return [dx, dy, width, height];
 }
 
-function getUndistortTable(iw, ih, fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, k5, k6, fisheye) {
-    const key = [
-        iw, ih, fx, fy, cx, cy,
-        k1, k2, p1, p2, k3, k4, k5, k6,
-        fisheye, chessCanvas.width, chessCanvas.height
-    ].join('|');
-    if (chessCanvas._undistortTable && chessCanvas._undistortTableKey === key) {
-        return chessCanvas._undistortTable;
-    }
-    chessCanvas._undistortTable = updateUndistortTable(iw, ih, fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
-    chessCanvas._undistortTableKey = key;
-    return chessCanvas._undistortTable;
-}
-
 function buildObjectPoints(bc, br, bw, bh, center) {
     const objp = [];
     let x_min = center ? -(bc - 1) / 2 : 0;
@@ -376,7 +351,10 @@ function renderChessboard() {
         let width = chessCanvas.width, height = chessCanvas.height;
         let img = chessCtx.getImageData(0, 0, width, height);
         let data = img.data;
-        let [dxTable, dyTable] = getUndistortTable(iw, ih, fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
+        if (!chessCanvas._undistortTable) {
+            chessCanvas._undistortTable = updateUndistortTable(iw, ih, fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
+        }
+        let [dxTable, dyTable] = chessCanvas._undistortTable;
 
         let [R11, R12, R13, R21, R22, R23, R31, R32, R33] = eulerAnglesToRotationMatrix(rx_cw, ry_cw, rz_cw);
         let x_min = center ? -(bc + 1) / 2 : -1;
@@ -483,9 +461,9 @@ function updateFovDisplay() {
     const hFov = 2 * Math.atan(Math.abs(hx)) * toDeg;
     const vFov = 2 * Math.atan(Math.abs(vy)) * toDeg;
     const dFov = 2 * Math.atan(Math.hypot(dx, dy)) * toDeg;
-    hFovLabel.textContent = `hFOV: ${hFov.toFixed(2)}°`;
-    vFovLabel.textContent = `vFOV: ${vFov.toFixed(2)}°`;
-    dFovLabel.textContent = `dFOV: ${dFov.toFixed(2)}°`;
+    document.getElementById('hFovLabel').textContent = `hFOV: ${hFov.toFixed(2)}°`;
+    document.getElementById('vFovLabel').textContent = `vFOV: ${vFov.toFixed(2)}°`;
+    document.getElementById('dFovLabel').textContent = `dFOV: ${dFov.toFixed(2)}°`;
 }
 
 function syncCurveUnitVisibility() {
@@ -818,16 +796,21 @@ function updateExtrinsicControls() {
 
 // main function to update parameter values based on user input and trigger a redraw. It takes the id of the parameter that was changed, updates the corresponding variable, and then calls drawPoints() to update the visualization. This function is called by both the slider and text box event handlers to keep them in sync and ensure that changes to either control update the parameter and redraw the scene.
 function updateParameter(id, value) {
-    let undistortChanged = false;
     switch (id) {
         // Intrinsic
-        case 'iw': update_iw(); undistortChanged = true; break;
-        case 'ih': update_ih(); undistortChanged = true; break;
+        case 'iw':
+            update_iw();
+            chessCanvas._undistortTable = null;
+            break;
+        case 'ih':
+            update_ih();
+            chessCanvas._undistortTable = null;
+            break;
         case 'fx':
         case 'fy':
         case 'cx':
         case 'cy':
-            undistortChanged = true;
+            chessCanvas._undistortTable = null;
             break;
 
         // Distortion
@@ -839,7 +822,7 @@ function updateParameter(id, value) {
         case 'k4':
         case 'k5':
         case 'k6':
-            undistortChanged = true;
+            chessCanvas._undistortTable = null;
             break;
 
         // Extrinsic (edit the appropriate set then sync)
@@ -888,11 +871,8 @@ function updateParameter(id, value) {
             break;
     }
 
-    if (undistortChanged) {
-        invalidateUndistortTable();
-    }
     updateFovDisplay();
-    if (isChessboardView()) {
+    if (viewChessboardBtn.classList.contains('active')) {
         renderChessboard();
     } else {
         refreshCurveChart();
@@ -908,10 +888,7 @@ function update_iw() {
     document.getElementById('cxText').value = cx;
     document.getElementById('cx').max = iw;
 
-    chessCanvas.width = 640;
-    chessCanvas.height = ih * 640 / iw;
-    curveCanvas.width = 640;
-    curveCanvas.height = 640 * 3 / 4;
+    chessCanvas.height = ih * chessCanvas.width / iw;
 }
 
 // update cy and canvas size when ih changes, keeping cy in the center by default. This function is called whenever the image height (ih) parameter is changed, and it updates the principal point cy to be at the center of the new image height by default. It also updates the maximum value of the cy slider to match the new image height, and resizes the canvas accordingly to maintain the correct aspect ratio based on the new image dimensions.
@@ -923,10 +900,7 @@ function update_ih() {
     document.getElementById('cyText').value = cy;
     document.getElementById('cy').max = ih;
 
-    chessCanvas.width = 640;
-    chessCanvas.height = ih * 640 / iw;
-    curveCanvas.width = 640;
-    curveCanvas.height = 640 * 3 / 4;
+    chessCanvas.height = ih * chessCanvas.width / iw;
 }
 
 // Intrinsics
@@ -961,9 +935,9 @@ document.getElementById('k5Text').addEventListener('input', function () { update
 document.getElementById('k6').addEventListener('input', function () { updateValuesFromSlider('k6'); });
 document.getElementById('k6Text').addEventListener('input', function () { updateValuesFromTextBox('k6'); });
 document.getElementById('fisheye').addEventListener('input', function () {
-    invalidateUndistortTable();
+    chessCanvas._undistortTable = null;
     updateFovDisplay();
-    if (isChessboardView()) {
+    if (viewChessboardBtn.classList.contains('active')) {
         renderChessboard();
     } else {
         refreshCurveChart();
@@ -986,7 +960,7 @@ document.getElementById('tzText').addEventListener('input', function () { update
 world2camBtn.addEventListener('click', function () {
     updateExtrinsicModeButtons('world2cam');
     updateExtrinsicControls();
-    if (isChessboardView()) {
+    if (viewChessboardBtn.classList.contains('active')) {
         renderChessboard();
     }
 });
@@ -994,7 +968,7 @@ world2camBtn.addEventListener('click', function () {
 cam2worldBtn.addEventListener('click', function () {
     updateExtrinsicModeButtons('cam2world');
     updateExtrinsicControls();
-    if (isChessboardView()) {
+    if (viewChessboardBtn.classList.contains('active')) {
         renderChessboard();
     }
 });
@@ -1029,20 +1003,20 @@ document.getElementById('center').addEventListener('input', function () {
     // sync and refresh UI
     syncExtrinsicsFromWorldToCamera();
     updateExtrinsicControls();
-    if (isChessboardView()) {
+    if (viewChessboardBtn.classList.contains('active')) {
         renderChessboard();
     }
 });
 document.getElementById('showSquares').addEventListener('input', function () {
     if (!this.checked) {
-        invalidateUndistortTable();
+        chessCanvas._undistortTable = null;
     }
-    if (isChessboardView()) {
+    if (viewChessboardBtn.classList.contains('active')) {
         renderChessboard();
     }
 });
 document.getElementById('showCircles').addEventListener('input', function () {
-    if (isChessboardView()) {
+    if (viewChessboardBtn.classList.contains('active')) {
         renderChessboard();
     }
 });
