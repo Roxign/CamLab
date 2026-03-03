@@ -1,6 +1,7 @@
 const viewChessboardBtn = document.getElementById('viewChessboard');
 const chessCanvas = document.getElementById('canvas');
 const chessCtx = chessCanvas.getContext('2d');
+chessCanvas._undistortTable = null;
 
 const world2camBtn = document.getElementById('world2cam');
 const cam2worldBtn = document.getElementById('cam2world');
@@ -13,10 +14,34 @@ const curveAxisOptions = document.getElementById('curveAxisOptions');
 const curveXUnitGroup = document.getElementById('curveXUnitGroup');
 const curveYUnitGroup = document.getElementById('curveYUnitGroup');
 
-const curveXTypeOptions = document.querySelectorAll('input[name="curveXType"]');
-const curveXUnitOptions = document.querySelectorAll('input[name="curveXUnit"]');
-const curveYTypeOptions = document.querySelectorAll('input[name="curveYType"]');
-const curveYUnitOptions = document.querySelectorAll('input[name="curveYUnit"]');
+const curveXTypeAngle = document.getElementById('curveXTypeAngle');
+const curveXTypeSlope = document.getElementById('curveXTypeSlope');
+const curveXTypeOptions = [curveXTypeAngle, curveXTypeSlope];
+
+const curveXUnitDeg = document.getElementById('curveXUnitDeg');
+const curveXUnitRad = document.getElementById('curveXUnitRad');
+const curveXUnitOptions = [curveXUnitDeg, curveXUnitRad];
+
+const curveYTypeAngle = document.getElementById('curveYTypeAngle');
+const curveYTypeSlope = document.getElementById('curveYTypeSlope');
+const curveYTypeHeight = document.getElementById('curveYTypeHeight');
+const curveYTypeOptions = [curveYTypeAngle, curveYTypeSlope, curveYTypeHeight];
+
+const curveYUnitDeg = document.getElementById('curveYUnitDeg');
+const curveYUnitRad = document.getElementById('curveYUnitRad');
+const curveYUnitPixel = document.getElementById('curveYUnitPixel');
+const curveYUnitUm = document.getElementById('curveYUnitUm');
+const curveYUnitMm = document.getElementById('curveYUnitMm');
+const curveYUnitCm = document.getElementById('curveYUnitCm');
+const curveYUnitM = document.getElementById('curveYUnitM');
+const curveYUnitOptions = [curveYUnitDeg, curveYUnitRad, curveYUnitPixel, curveYUnitUm, curveYUnitMm, curveYUnitCm, curveYUnitM];
+const curveYAngleUnits = [curveYUnitDeg, curveYUnitRad];
+const curveYHeightUnits = [curveYUnitPixel, curveYUnitUm, curveYUnitMm, curveYUnitCm, curveYUnitM];
+
+let curveXType = 'angle';
+let curveXUnit = 'deg';
+let curveYtype = 'angle';
+let curveYUnit = 'deg';
 
 // Initial Parameters
 let rx_wc = 0, ry_wc = 0, rz_wc = 0, tx_wc = 0, ty_wc = 0, tz_wc = 1000;
@@ -59,35 +84,29 @@ function getChessboardSettings() {
     ];
 }
 
-function getCurveOptions() {
-    const getChecked = (name, fallback) => document.querySelector(`input[name="${name}"]:checked`)?.value ?? fallback;
-    return [
-        getChecked('curveXType', 'angle'),
-        getChecked('curveXUnit', 'deg'),
-        getChecked('curveYType', 'angle'),
-        getChecked('curveYUnit', 'deg')
-    ];
+function toggleChessUI(enabled) {
+    viewChessboardBtn.classList.toggle('active', enabled);
+    if (enabled) {
+        viewCurveBtn.classList.remove('active');
+        chessCanvas.classList.remove('hidden');
+        chessCanvas.style.display = 'block';
+    } else {
+        chessCanvas.classList.add('hidden');
+        chessCanvas.style.display = 'none';
+    }
 }
 
-chessCanvas._undistortTable = null;
-
-function updateViewControls(mode) {
-    if (mode === 'chessboard') {
-        viewChessboardBtn.classList.add('active');
-        viewCurveBtn.classList.remove('active');
-        curveAxisOptions.classList.add('hidden');
-        chessCanvas.classList.remove('hidden');
-        curveCanvas.classList.add('hidden');
-        chessCanvas.style.display = 'block';
-        curveCanvas.style.display = 'none';
-    } else {
-        viewCurveBtn.classList.add('active');
+function toggleCurveUI(enabled) {
+    viewCurveBtn.classList.toggle('active', enabled);
+    if (enabled) {
         viewChessboardBtn.classList.remove('active');
         curveAxisOptions.classList.remove('hidden');
         curveCanvas.classList.remove('hidden');
-        chessCanvas.classList.add('hidden');
         curveCanvas.style.display = 'block';
-        chessCanvas.style.display = 'none';
+    } else {
+        curveAxisOptions.classList.add('hidden');
+        curveCanvas.classList.add('hidden');
+        curveCanvas.style.display = 'none';
     }
 }
 
@@ -186,10 +205,10 @@ function projectPoint(p3d, iw, ih, fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, k5, k
 }
 
 // iteratively undistort normalized coordinates by minimizing the difference between the input distorted coordinates and the output of applyDistortion. This is necessary because the distortion models are not easily invertible, especially for the fisheye model. The function starts with the distorted coordinates as an initial guess and iteratively refines it until convergence or a maximum number of iterations is reached.
-function undistortNormalized(xDist, yDist, k1, k2, p1, p2, k3, k4, k5, k6, fisheye, maxIter = 30, lambda0 = 1e-3, tol = 1e-12, costTol = 1e-12) {
-    let lambda = lambda0;
+function undistortNormalized(xDist, yDist, k1, k2, p1, p2, k3, k4, k5, k6, fisheye, maxIter = 30, eps = 1e-2) {
+    const lambdaInit = 1e-3;
+    let lambda = lambdaInit;
     const maxLambda = 1e16;
-    const r_eps = 1e-12;
 
     // initial guess
     let x = xDist, y = yDist;
@@ -203,7 +222,7 @@ function undistortNormalized(xDist, yDist, k1, k2, p1, p2, k3, k4, k5, k6, fishe
 
         if (fisheye) {
             const r = Math.hypot(x, y);
-            if (r < r_eps) {
+            if (r < eps) {
                 J00 = 1; J01 = 0; J10 = 0; J11 = 1;
             } else {
                 const t = Math.atan(r);
@@ -291,11 +310,9 @@ function undistortNormalized(xDist, yDist, k1, k2, p1, p2, k3, k4, k5, k6, fishe
 
         if (costT < cost) {
             x = xT; y = yT; r0 = r0t; r1 = r1t;
-            const diff = cost - costT;
             cost = costT;
             lambda = Math.max(lambda * 0.1, 1e-16);
-            if (dx * dx + dy * dy < tol) break;
-            if (diff < costTol) break;
+            if (dx * dx + dy * dy < eps) break;
         } else {
             lambda = Math.min(lambda * 10, maxLambda);
             if (lambda >= maxLambda) break;
@@ -307,16 +324,20 @@ function undistortNormalized(xDist, yDist, k1, k2, p1, p2, k3, k4, k5, k6, fishe
 
 // precompute the undistortion table for each pixel in the canvas. This allows us to quickly look up the corresponding undistorted ray direction for each pixel when rendering the chessboard squares, without having to run the iterative undistortion process for every pixel on every frame. The table is updated whenever the intrinsics or distortion parameters change, since those affect the mapping from distorted image coordinates to undistorted ray directions.
 function updateUndistortTable(iw, ih, fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, k5, k6, fisheye) {
-    let width = chessCanvas.width, height = chessCanvas.height;
-    let size = width * height;
-    let dx = new Float32Array(size);
-    let dy = new Float32Array(size);
+    let width = chessCanvas.width;
+    let height = chessCanvas.height;
+    let dx = new Float32Array(width * height);
+    let dy = new Float32Array(width * height);
+
+    const fxCanvas = fx * width / iw;
+    const fyCanvas = fy * height / ih;
+    const cxCanvas = cx * width / iw;
+    const cyCanvas = cy * height / ih;
+
     for (let v = 0; v < height; v++) {
         for (let u = 0; u < width; u++) {
-            let ud = u * iw / width;
-            let vd = v * ih / height;
-            let xDist = (ud - cx) / fx;
-            let yDist = (vd - cy) / fy;
+            let xDist = (u - cxCanvas) / fxCanvas;
+            let yDist = (v - cyCanvas) / fyCanvas;
             let [xu, yu] = undistortNormalized(xDist, yDist, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
             let idx = v * width + u;
             dx[idx] = xu;
@@ -409,112 +430,125 @@ function renderChessboard() {
     }
 }
 
-function applyUnitOptionVisibility(optionList, allowedValues) {
-    optionList.forEach(option => {
-        const label = option.closest('label');
-        const show = allowedValues.includes(option.value);
-        if (label) {
-            label.classList.toggle('hidden', !show);
-            label.classList.toggle('disabled-option', !show);
-        }
-        option.disabled = !show;
-        if (!show && option.checked) {
-            option.checked = false;
-        }
-    });
-}
-
-function setUnitGroupDisabled(optionList, disabled) {
-    optionList.forEach(option => {
-        const label = option.closest('label');
-        if (label) {
-            label.classList.toggle('disabled-option', disabled);
-        }
-        option.disabled = disabled;
-    });
-}
-
 function updateFovDisplay() {
     const [iw, ih, fx, fy, cx, cy] = getIntrinsics();
     const [k1, k2, p1, p2, k3, k4, k5, k6, fisheye] = getDistortion();
-    const toDeg = 180 / Math.PI;
-    const nearestU = Math.abs(cx - 0) <= Math.abs(iw - cx) ? 0 : iw;
-    const nearestV = Math.abs(cy - 0) <= Math.abs(ih - cy) ? 0 : ih;
 
-    const corners = [[0, 0], [iw, 0], [0, ih], [iw, ih]];
-    let nearestCorner = corners[0];
-    let nearestCornerDist2 = Number.POSITIVE_INFINITY;
-    corners.forEach(corner => {
-        const du = corner[0] - cx;
-        const dv = corner[1] - cy;
-        const d2 = du * du + dv * dv;
-        if (d2 < nearestCornerDist2) {
-            nearestCornerDist2 = d2;
-            nearestCorner = corner;
-        }
-    });
-
+    const nearestU = (cx > iw / 2) ? iw : 0;
+    const nearestV = (cy > ih / 2) ? ih : 0;
     const [hx, hy] = undistortNormalized((nearestU - cx) / fx, (cy - cy) / fy, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
     const [vx, vy] = undistortNormalized((cx - cx) / fx, (nearestV - cy) / fy, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
-    const [dx, dy] = undistortNormalized((nearestCorner[0] - cx) / fx, (nearestCorner[1] - cy) / fy, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
+    const [dx, dy] = undistortNormalized((nearestU - cx) / fx, (nearestV - cy) / fy, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
 
-    const hFov = 2 * Math.atan(Math.abs(hx)) * toDeg;
-    const vFov = 2 * Math.atan(Math.abs(vy)) * toDeg;
-    const dFov = 2 * Math.atan(Math.hypot(dx, dy)) * toDeg;
+    const hFov = 2 * Math.atan(Math.abs(hx)) * 180 / Math.PI;
+    const vFov = 2 * Math.atan(Math.abs(vy)) * 180 / Math.PI;
+    const dFov = 2 * Math.atan(Math.hypot(dx, dy)) * 180 / Math.PI;
     document.getElementById('hFovLabel').textContent = `hFOV: ${hFov.toFixed(2)}°`;
     document.getElementById('vFovLabel').textContent = `vFOV: ${vFov.toFixed(2)}°`;
     document.getElementById('dFovLabel').textContent = `dFOV: ${dFov.toFixed(2)}°`;
 }
 
+function setCurveUnitOptionState(option, enabled) {
+    const label = option.closest('label');
+    if (label) {
+        label.classList.toggle('hidden', !enabled);
+        label.classList.toggle('disabled-option', !enabled);
+    }
+    option.disabled = !enabled;
+    if (!enabled && option.checked) {
+        option.checked = false;
+    }
+}
+
+function applyCurveYUnitFamily(activeOptions) {
+    curveYUnitOptions.forEach(option => setCurveUnitOptionState(option, false));
+    activeOptions.forEach(option => setCurveUnitOptionState(option, true));
+}
+
 function syncCurveUnitVisibility() {
-    const [curveXType, , curveYType, curveYUnit] = getCurveOptions();
+    // X-axis: only angle mode currently supports selectable units.
     if (curveXType === 'angle') {
+        // Show the X unit group and keep only angular units enabled/visible.
         curveXUnitGroup.classList.remove('hidden');
-        applyUnitOptionVisibility(curveXUnitOptions, ['deg', 'rad']);
-        const selectedXUnit = document.querySelector('input[name="curveXUnit"]:checked')?.value;
-        if (selectedXUnit !== 'deg' && selectedXUnit !== 'rad') {
-            document.querySelector('input[name="curveXUnit"][value="deg"]').checked = true;
+        curveXUnitOptions.forEach(option => {
+            const label = option.closest('label');
+            const show = ['deg', 'rad'].includes(option.value);
+            if (label) {
+                label.classList.toggle('hidden', !show);
+                label.classList.toggle('disabled-option', !show);
+            }
+            option.disabled = !show;
+            if (!show && option.checked) {
+                option.checked = false;
+            }
+        });
+        // Ensure X unit always falls back to a valid angular default.
+        if (curveXUnit !== 'deg' && curveXUnit !== 'rad') {
+            curveXUnitDeg.checked = true;
+            curveXUnit = 'deg';
         }
     } else {
+        // Hide/disable X units entirely for non-angle X-axis types.
         curveXUnitGroup.classList.add('hidden');
-        setUnitGroupDisabled(curveXUnitOptions, true);
+        curveXUnitOptions.forEach(option => {
+            const label = option.closest('label');
+            if (label) {
+                label.classList.add('disabled-option');
+            }
+            option.disabled = true;
+        });
     }
 
-    if (curveYType === 'angle') {
+    // Y-axis supports two configurable unit families: angle and image height.
+    if (curveYtype === 'angle') {
+        // Angle mode: keep only degree/radian options active.
         curveYUnitGroup.classList.remove('hidden');
-        applyUnitOptionVisibility(curveYUnitOptions, ['deg', 'rad']);
-        if (curveYUnit !== 'deg' && curveYUnit !== 'rad') {
-            document.querySelector('input[name="curveYUnit"][value="deg"]').checked = true;
+        applyCurveYUnitFamily(curveYAngleUnits);
+        // Ensure Y unit has a valid angular default when needed.
+        if (!['deg', 'rad'].includes(curveYUnit)) {
+            curveYUnitDeg.checked = true;
+            curveYUnit = 'deg';
         }
-    } else if (curveYType === 'height') {
+    } else if (curveYtype === 'height') {
+        // Height mode: expose linear/image-height units and hide angle/slope choices.
         curveYUnitGroup.classList.remove('hidden');
-        applyUnitOptionVisibility(curveYUnitOptions, ['pixel', 'um', 'mm', 'cm', 'm']);
+        applyCurveYUnitFamily(curveYHeightUnits);
+        // Ensure Y unit has a valid height default when needed.
         if (!['pixel', 'um', 'mm', 'cm', 'm'].includes(curveYUnit)) {
-            document.querySelector('input[name="curveYUnit"][value="pixel"]').checked = true;
+            curveYUnitPixel.checked = true;
+            curveYUnit = 'pixel';
         }
     } else {
+        // For slope mode (or any unsupported type), hide and disable Y unit controls.
         curveYUnitGroup.classList.add('hidden');
-        setUnitGroupDisabled(curveYUnitOptions, true);
+        curveYUnitOptions.forEach(option => {
+            const label = option.closest('label');
+            if (label) {
+                label.classList.add('disabled-option');
+            }
+            option.disabled = true;
+        });
     }
 }
 
 function getXAxisLabel() {
-    const [curveXType, curveXUnit] = getCurveOptions();
-    if (curveXType === 'angle') {
-        return curveXUnit === 'rad' ? 'incoming ray angle (rad)' : 'incoming ray angle (deg)';
+    switch (curveXType) {
+        case 'angle':
+            return `incoming ray angle (${curveXUnit})`;
+        default:
+            return 'incoming ray slope (tanθ)';
     }
-    return 'incoming ray slope (tanθ)';
 }
 
 function getYAxisLabel() {
-    const [, , curveYType, curveYUnit] = getCurveOptions();
-    if (curveYType === 'angle') {
-        return curveYUnit === 'rad' ? 'reflected ray angle (rad)' : 'reflected ray angle (deg)';
+    switch (curveYtype) {
+        case 'angle':
+            return `reflected ray angle (${curveYUnit})`;
+        case 'height':
+            return `image height (${curveYUnit})`;
+        default:
+            return 'reflected ray slope (tanθ)';
     }
-    if (curveYType === 'height') {
-        return `image height (${curveYUnit})`;
-    }
-    return 'reflected ray slope (tanθ)';
 }
 
 function initCurveChart() {
@@ -603,7 +637,6 @@ function initCurveChart() {
 function buildCurveSeriesData() {
     const [iw, ih, fx, fy, cx, cy] = getIntrinsics();
     const [k1, k2, p1, p2, k3, k4, k5, k6, fisheye] = getDistortion();
-    const [curveXType, curveXUnit, curveYType, curveYUnit] = getCurveOptions();
     const samples = 100;
     const corners = [[0, 0], [iw, 0], [0, ih], [iw, ih]];
     let farthestCorner = corners[0];
@@ -646,11 +679,11 @@ function buildCurveSeriesData() {
         }
 
         let yValue;
-        if (curveYType === 'angle') {
+        if (curveYtype === 'angle') {
             yValue = curveYUnit === 'rad'
                 ? Math.atan(outputSlope)
                 : Math.atan(outputSlope) * 180 / Math.PI;
-        } else if (curveYType === 'height') {
+        } else if (curveYtype === 'height') {
             switch (curveYUnit) {
                 case 'pixel':
                     yValue = fy * outputSlope;
@@ -763,31 +796,30 @@ function syncExtrinsicsFromCameraToWorld() {
 
 // update sliders/text boxes for extrinsic based on current mode
 function updateExtrinsicControls() {
-    const toDeg = r => r * 180 / Math.PI;
     if (world2camBtn.classList.contains('active')) {
-        document.getElementById('rx').value = toDeg(rx_wc);
-        document.getElementById('ry').value = toDeg(ry_wc);
-        document.getElementById('rz').value = toDeg(rz_wc);
+        document.getElementById('rx').value = rx_wc * 180 / Math.PI;
+        document.getElementById('ry').value = ry_wc * 180 / Math.PI;
+        document.getElementById('rz').value = rz_wc * 180 / Math.PI;
         document.getElementById('tx').value = tx_wc;
         document.getElementById('ty').value = ty_wc;
         document.getElementById('tz').value = tz_wc;
-        document.getElementById('rxText').value = toDeg(rx_wc);
-        document.getElementById('ryText').value = toDeg(ry_wc);
-        document.getElementById('rzText').value = toDeg(rz_wc);
+        document.getElementById('rxText').value = rx_wc * 180 / Math.PI;
+        document.getElementById('ryText').value = ry_wc * 180 / Math.PI;
+        document.getElementById('rzText').value = rz_wc * 180 / Math.PI;
         document.getElementById('txText').value = tx_wc;
         document.getElementById('tyText').value = ty_wc;
         document.getElementById('tzText').value = tz_wc;
     }
     else {
-        document.getElementById('rx').value = toDeg(rx_cw);
-        document.getElementById('ry').value = toDeg(ry_cw);
-        document.getElementById('rz').value = toDeg(rz_cw);
+        document.getElementById('rx').value = rx_cw * 180 / Math.PI;
+        document.getElementById('ry').value = ry_cw * 180 / Math.PI;
+        document.getElementById('rz').value = rz_cw * 180 / Math.PI;
         document.getElementById('tx').value = tx_cw;
         document.getElementById('ty').value = ty_cw;
         document.getElementById('tz').value = tz_cw;
-        document.getElementById('rxText').value = toDeg(rx_cw);
-        document.getElementById('ryText').value = toDeg(ry_cw);
-        document.getElementById('rzText').value = toDeg(rz_cw);
+        document.getElementById('rxText').value = rx_cw * 180 / Math.PI;
+        document.getElementById('ryText').value = ry_cw * 180 / Math.PI;
+        document.getElementById('rzText').value = rz_cw * 180 / Math.PI;
         document.getElementById('txText').value = tx_cw;
         document.getElementById('tyText').value = ty_cw;
         document.getElementById('tzText').value = tz_cw;
@@ -884,9 +916,9 @@ function update_iw() {
     const iw = parseFloat(document.getElementById('iw').value);
     const ih = parseFloat(document.getElementById('ih').value);
     const cx = iw / 2;
+    document.getElementById('cx').max = iw;
     document.getElementById('cx').value = cx;
     document.getElementById('cxText').value = cx;
-    document.getElementById('cx').max = iw;
 
     chessCanvas.height = ih * chessCanvas.width / iw;
 }
@@ -896,9 +928,9 @@ function update_ih() {
     const ih = parseFloat(document.getElementById('ih').value);
     const iw = parseFloat(document.getElementById('iw').value);
     const cy = ih / 2;
+    document.getElementById('cy').max = ih;
     document.getElementById('cy').value = cy;
     document.getElementById('cyText').value = cy;
-    document.getElementById('cy').max = ih;
 
     chessCanvas.height = ih * chessCanvas.width / iw;
 }
@@ -960,17 +992,11 @@ document.getElementById('tzText').addEventListener('input', function () { update
 world2camBtn.addEventListener('click', function () {
     updateExtrinsicModeButtons('world2cam');
     updateExtrinsicControls();
-    if (viewChessboardBtn.classList.contains('active')) {
-        renderChessboard();
-    }
 });
 
 cam2worldBtn.addEventListener('click', function () {
     updateExtrinsicModeButtons('cam2world');
     updateExtrinsicControls();
-    if (viewChessboardBtn.classList.contains('active')) {
-        renderChessboard();
-    }
 });
 
 // Chessboard
@@ -1003,14 +1029,8 @@ document.getElementById('center').addEventListener('input', function () {
     // sync and refresh UI
     syncExtrinsicsFromWorldToCamera();
     updateExtrinsicControls();
-    if (viewChessboardBtn.classList.contains('active')) {
-        renderChessboard();
-    }
 });
 document.getElementById('showSquares').addEventListener('input', function () {
-    if (!this.checked) {
-        chessCanvas._undistortTable = null;
-    }
     if (viewChessboardBtn.classList.contains('active')) {
         renderChessboard();
     }
@@ -1022,37 +1042,43 @@ document.getElementById('showCircles').addEventListener('input', function () {
 });
 
 viewChessboardBtn.addEventListener('click', function () {
-    updateViewControls('chessboard');
+    toggleChessUI(true);
+    toggleCurveUI(false);
     renderChessboard();
 });
 
 viewCurveBtn.addEventListener('click', function () {
-    updateViewControls('curve');
+    toggleChessUI(false);
+    toggleCurveUI(true);
     refreshCurveChart();
 });
 
 curveXTypeOptions.forEach(option => {
-    option.addEventListener('input', function () {
+    option.addEventListener('change', function () {
+        curveXType = this.value;
         syncCurveUnitVisibility();
         refreshCurveChart();
     });
 });
 
 curveXUnitOptions.forEach(option => {
-    option.addEventListener('input', function () {
+    option.addEventListener('change', function () {
+        curveXUnit = this.value;
         refreshCurveChart();
     });
 });
 
 curveYTypeOptions.forEach(option => {
-    option.addEventListener('input', function () {
+    option.addEventListener('change', function () {
+        curveYtype = this.value;
         syncCurveUnitVisibility();
         refreshCurveChart();
     });
 });
 
 curveYUnitOptions.forEach(option => {
-    option.addEventListener('input', function () {
+    option.addEventListener('change', function () {
+        curveYUnit = this.value;
         refreshCurveChart();
     });
 });
@@ -1062,7 +1088,8 @@ document.getElementById('reset').addEventListener('click', () => location.reload
 
 // initial setup
 initCurveChart();
-updateViewControls('chessboard');
+toggleChessUI(true);
+toggleCurveUI(false);
 updateExtrinsicModeButtons('world2cam');
 syncCurveUnitVisibility();
 updateFovDisplay();
