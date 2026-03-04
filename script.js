@@ -11,37 +11,26 @@ const curveCanvas = document.getElementById('curveCanvas');
 const curveCtx = curveCanvas.getContext('2d');
 
 const curveAxisOptions = document.getElementById('curveAxisOptions');
-const curveXUnitGroup = document.getElementById('curveXUnitGroup');
-const curveYUnitGroup = document.getElementById('curveYUnitGroup');
 
-const curveXTypeAngle = document.getElementById('curveXTypeAngle');
-const curveXTypeSlope = document.getElementById('curveXTypeSlope');
-const curveXTypeOptions = [curveXTypeAngle, curveXTypeSlope];
+const curveAxisKeys = ['x', 'y'];
 
-const curveXUnitDeg = document.getElementById('curveXUnitDeg');
-const curveXUnitRad = document.getElementById('curveXUnitRad');
-const curveXUnitOptions = [curveXUnitDeg, curveXUnitRad];
+const curveAxes = Object.fromEntries(curveAxisKeys.map(axisKey => {
+    const typeOptions = Array.from(document.querySelectorAll(`input[data-curve-axis="${axisKey}"][data-curve-role="type"]`));
+    const unitOptions = Array.from(document.querySelectorAll(`input[data-curve-axis="${axisKey}"][data-curve-role="unit"]`));
+    const unitGroup = document.querySelector(`[data-curve-axis="${axisKey}"][data-curve-role="unit-group"]`);
+    const labels = Object.fromEntries(typeOptions.map(option => [option.value, option.dataset.axisLabel || option.value]));
 
-const curveYTypeAngle = document.getElementById('curveYTypeAngle');
-const curveYTypeSlope = document.getElementById('curveYTypeSlope');
-const curveYTypeHeight = document.getElementById('curveYTypeHeight');
-const curveYTypeOptions = [curveYTypeAngle, curveYTypeSlope, curveYTypeHeight];
-
-const curveYUnitDeg = document.getElementById('curveYUnitDeg');
-const curveYUnitRad = document.getElementById('curveYUnitRad');
-const curveYUnitPixel = document.getElementById('curveYUnitPixel');
-const curveYUnitUm = document.getElementById('curveYUnitUm');
-const curveYUnitMm = document.getElementById('curveYUnitMm');
-const curveYUnitCm = document.getElementById('curveYUnitCm');
-const curveYUnitM = document.getElementById('curveYUnitM');
-const curveYUnitOptions = [curveYUnitDeg, curveYUnitRad, curveYUnitPixel, curveYUnitUm, curveYUnitMm, curveYUnitCm, curveYUnitM];
-const curveYAngleUnits = [curveYUnitDeg, curveYUnitRad];
-const curveYHeightUnits = [curveYUnitPixel, curveYUnitUm, curveYUnitMm, curveYUnitCm, curveYUnitM];
-
-let curveXType = 'angle';
-let curveXUnit = 'deg';
-let curveYtype = 'angle';
-let curveYUnit = 'deg';
+    return [axisKey, {
+        unitGroup,
+        typeOptions,
+        unitOptions,
+        labels,
+        state: {
+            type: (typeOptions.find(option => option.checked) || typeOptions[0])?.value || 'angle',
+            unit: (unitOptions.find(option => option.checked) || unitOptions[0])?.value || 'deg'
+        }
+    }];
+}));
 
 // Initial Parameters
 let rx_wc = 0, ry_wc = 0, rz_wc = 0, tx_wc = 0, ty_wc = 0, tz_wc = 1000;
@@ -204,8 +193,48 @@ function projectPoint(p3d, iw, ih, fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, k5, k
     return [u, v, zc];
 }
 
-// iteratively undistort normalized coordinates by minimizing the difference between the input distorted coordinates and the output of applyDistortion. This is necessary because the distortion models are not easily invertible, especially for the fisheye model. The function starts with the distorted coordinates as an initial guess and iteratively refines it until convergence or a maximum number of iterations is reached.
+// invert distorted normalized coordinates. Returns [x, y, z], where x and y are normalized by |z|, and z indicates ray hemisphere (+1 front, -1 back).
+// For fisheye mode, this includes solving the fisheye incident angle directly and deriving z from whether theta exceeds 90 degrees.
 function undistortNormalized(xDist, yDist, k1, k2, p1, p2, k3, k4, k5, k6, fisheye, maxIter = 30, eps = 1e-2) {
+    if (fisheye) {
+        const thetaDist = Math.hypot(xDist, yDist);
+        if (thetaDist === 0) {
+            return [0, 0, 1];
+        }
+
+        let theta = Math.min(thetaDist, Math.PI - 1e-6);
+        for (let i = 0; i < maxIter; i++) {
+            const t2 = theta * theta;
+            const t3 = t2 * theta;
+            const t4 = t2 * t2;
+            const t5 = t3 * t2;
+            const t6 = t3 * t3;
+            const t7 = t4 * t3;
+            const t8 = t4 * t4;
+            const t9 = t5 * t4;
+
+            const f = theta + k1 * t3 + k2 * t5 + k3 * t7 + k4 * t9 - thetaDist;
+            const df = 1 + 3 * k1 * t2 + 5 * k2 * t4 + 7 * k3 * t6 + 9 * k4 * t8;
+
+            if (!isFinite(df) || Math.abs(df) < 1e-14) {
+                break;
+            }
+
+            const step = f / df;
+            theta -= step;
+            theta = Math.max(0, Math.min(theta, Math.PI - 1e-6));
+            if (Math.abs(step) < 1e-12) {
+                break;
+            }
+        }
+
+        const z = theta > Math.PI * 0.5 ? -1 : 1;
+        const frontTheta = z > 0 ? theta : (Math.PI - theta);
+        const r = Math.tan(frontTheta);
+        const scale = r / thetaDist;
+        return [xDist * scale, yDist * scale, z];
+    }
+
     const lambdaInit = 1e-3;
     let lambda = lambdaInit;
     const maxLambda = 1e16;
@@ -220,46 +249,25 @@ function undistortNormalized(xDist, yDist, k1, k2, p1, p2, k3, k4, k5, k6, fishe
         // Jacobian J = d(xp,yp)/d(x,y)
         let J00, J01, J10, J11;
 
-        if (fisheye) {
-            const r = Math.hypot(x, y);
-            if (r < eps) {
-                J00 = 1; J01 = 0; J10 = 0; J11 = 1;
-            } else {
-                const t = Math.atan(r);
-                const t2 = t * t, t3 = t2 * t, t4 = t2 * t2, t5 = t3 * t2, t6 = t3 * t3, t7 = t4 * t3, t8 = t4 * t4, t9 = t5 * t4;
-                const fd = t + k1 * t3 + k2 * t5 + k3 * t7 + k4 * t9;
-                const dfd_dt = 1 + 3 * k1 * t2 + 5 * k2 * t4 + 7 * k3 * t6 + 9 * k4 * t8;
-                const dtdr = 1.0 / (1 + r * r);
-                const dfd_dr = dfd_dt * dtdr;
-                const S = fd / r;
-                const dS_dr = (dfd_dr * r - fd) / (r * r);
-                const x_r = x / r, y_r = y / r;
-                J00 = S + (x * x_r) * dS_dr;
-                J01 = x * (dS_dr * y_r);
-                J10 = y * (dS_dr * x_r);
-                J11 = S + (y * y_r) * dS_dr;
-            }
-        } else {
-            const r2 = x * x + y * y;
-            const r4 = r2 * r2;
-            const r6 = r4 * r2;
-            const N = 1 + k1 * r2 + k2 * r4 + k3 * r6;
-            const D = 1 + k4 * r2 + k5 * r4 + k6 * r6;
-            const Np = k1 + 2 * k2 * r2 + 3 * k3 * r4;
-            const Dp = k4 + 2 * k5 * r2 + 3 * k6 * r4;
-            const dradial_dr2 = (Np * D - N * Dp) / (D * D);
-            const radial = N / D;
-            const dradial_dx = dradial_dr2 * 2 * x;
-            const dradial_dy = dradial_dr2 * 2 * y;
-            const dtx_dx = 2 * p1 * y + 6 * p2 * x;
-            const dtx_dy = 2 * p1 * x + 2 * p2 * y;
-            const dty_dx = 2 * p1 * x + 2 * p2 * y;
-            const dty_dy = 6 * p1 * y + 2 * p2 * x;
-            J00 = radial + x * dradial_dx + dtx_dx;
-            J01 = x * dradial_dy + dtx_dy;
-            J10 = y * dradial_dx + dty_dx;
-            J11 = radial + y * dradial_dy + dty_dy;
-        }
+        const r2 = x * x + y * y;
+        const r4 = r2 * r2;
+        const r6 = r4 * r2;
+        const N = 1 + k1 * r2 + k2 * r4 + k3 * r6;
+        const D = 1 + k4 * r2 + k5 * r4 + k6 * r6;
+        const Np = k1 + 2 * k2 * r2 + 3 * k3 * r4;
+        const Dp = k4 + 2 * k5 * r2 + 3 * k6 * r4;
+        const dradial_dr2 = (Np * D - N * Dp) / (D * D);
+        const radial = N / D;
+        const dradial_dx = dradial_dr2 * 2 * x;
+        const dradial_dy = dradial_dr2 * 2 * y;
+        const dtx_dx = 2 * p1 * y + 6 * p2 * x;
+        const dtx_dy = 2 * p1 * x + 2 * p2 * y;
+        const dty_dx = 2 * p1 * x + 2 * p2 * y;
+        const dty_dy = 6 * p1 * y + 2 * p2 * x;
+        J00 = radial + x * dradial_dx + dtx_dx;
+        J01 = x * dradial_dy + dtx_dy;
+        J10 = y * dradial_dx + dty_dx;
+        J11 = radial + y * dradial_dy + dty_dy;
 
         // JTJ and JTr
         const JTJ00 = J00 * J00 + J10 * J10;
@@ -319,7 +327,7 @@ function undistortNormalized(xDist, yDist, k1, k2, p1, p2, k3, k4, k5, k6, fishe
         }
     }
 
-    return [x, y];
+    return [x, y, 1];
 }
 
 // precompute the undistortion table for each pixel in the canvas. This allows us to quickly look up the corresponding undistorted ray direction for each pixel when rendering the chessboard squares, without having to run the iterative undistortion process for every pixel on every frame. The table is updated whenever the intrinsics or distortion parameters change, since those affect the mapping from distorted image coordinates to undistorted ray directions.
@@ -328,6 +336,7 @@ function updateUndistortTable(iw, ih, fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, k5
     let height = chessCanvas.height;
     let dx = new Float32Array(width * height);
     let dy = new Float32Array(width * height);
+    let dz = new Float32Array(width * height);
 
     const fxCanvas = fx * width / iw;
     const fyCanvas = fy * height / ih;
@@ -338,27 +347,14 @@ function updateUndistortTable(iw, ih, fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, k5
         for (let u = 0; u < width; u++) {
             let xDist = (u - cxCanvas) / fxCanvas;
             let yDist = (v - cyCanvas) / fyCanvas;
-            let [xu, yu] = undistortNormalized(xDist, yDist, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
+            let [xu, yu, zu] = undistortNormalized(xDist, yDist, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
             let idx = v * width + u;
             dx[idx] = xu;
             dy[idx] = yu;
+            dz[idx] = zu;
         }
     }
-    return [dx, dy, width, height];
-}
-
-function buildObjectPoints(bc, br, bw, bh, center) {
-    const objp = [];
-    let x_min = center ? -(bc - 1) / 2 : 0;
-    let x_max = center ? bc / 2 : bc;
-    let y_min = center ? -(br - 1) / 2 : 0;
-    let y_max = center ? br / 2 : br;
-    for (let y = y_min; y < y_max; y++) {
-        for (let x = x_min; x < x_max; x++) {
-            objp.push([x * bw, y * bh, 0]);
-        }
-    }
-    return objp;
+    return [dx, dy, dz, width, height];
 }
 
 // render the chessboard and corners based on current parameters. If "showSquares" is enabled, it uses the undistortion table to determine the color of each pixel by raycasting from the camera through the distorted image plane into the world to see what color it hits on the chessboard. If "showCircles" is enabled, it projects the 3D corner points and draws filled circles at their locations, colored red if they are in front of the camera and blue if they are behind, which helps visualize how the extrinsic parameters affect the projection of points in space.
@@ -375,7 +371,7 @@ function renderChessboard() {
         if (!chessCanvas._undistortTable) {
             chessCanvas._undistortTable = updateUndistortTable(iw, ih, fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
         }
-        let [dxTable, dyTable] = chessCanvas._undistortTable;
+        let [dxTable, dyTable, dzTable] = chessCanvas._undistortTable;
 
         let [R11, R12, R13, R21, R22, R23, R31, R32, R33] = eulerAnglesToRotationMatrix(rx_cw, ry_cw, rz_cw);
         let x_min = center ? -(bc + 1) / 2 : -1;
@@ -390,7 +386,7 @@ function renderChessboard() {
                 let idx = v * width + u;
                 let dx = dxTable[idx];
                 let dy = dyTable[idx];
-                let dz = 1;
+                let dz = dzTable[idx];
 
                 let dwx = R11 * dx + R12 * dy + R13 * dz;
                 let dwy = R21 * dx + R22 * dy + R23 * dz;
@@ -419,14 +415,20 @@ function renderChessboard() {
     }
 
     if (showCircles) {
-        let objp = buildObjectPoints(bc, br, bw, bh, center);
-        objp.forEach(p3d => {
-            let [u, v, zc] = projectPoint(p3d, iw, ih, fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
-            chessCtx.fillStyle = zc > 0 ? "red" : "blue";
-            chessCtx.beginPath();
-            chessCtx.arc(u, v, 3, 0, 2 * Math.PI);
-            chessCtx.fill();
-        });
+        const xMin = center ? -(bc - 1) / 2 : 0;
+        const xMax = center ? bc / 2 : bc;
+        const yMin = center ? -(br - 1) / 2 : 0;
+        const yMax = center ? br / 2 : br;
+        for (let y = yMin; y < yMax; y++) {
+            for (let x = xMin; x < xMax; x++) {
+                const p3d = [x * bw, y * bh, 0];
+                const [u, v, zc] = projectPoint(p3d, iw, ih, fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
+                chessCtx.fillStyle = zc > 0 ? "red" : "blue";
+                chessCtx.beginPath();
+                chessCtx.arc(u, v, 3, 0, 2 * Math.PI);
+                chessCtx.fill();
+            }
+        }
     }
 }
 
@@ -436,119 +438,104 @@ function updateFovDisplay() {
 
     const nearestU = (cx > iw / 2) ? iw : 0;
     const nearestV = (cy > ih / 2) ? ih : 0;
-    const [hx, hy] = undistortNormalized((nearestU - cx) / fx, (cy - cy) / fy, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
-    const [vx, vy] = undistortNormalized((cx - cx) / fx, (nearestV - cy) / fy, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
-    const [dx, dy] = undistortNormalized((nearestU - cx) / fx, (nearestV - cy) / fy, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
 
-    const hFov = 2 * Math.atan(Math.abs(hx)) * 180 / Math.PI;
-    const vFov = 2 * Math.atan(Math.abs(vy)) * 180 / Math.PI;
-    const dFov = 2 * Math.atan(Math.hypot(dx, dy)) * 180 / Math.PI;
+    const [hx, hy, hz] = undistortNormalized((nearestU - cx) / fx, 0, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
+    const [vx, vy, vz] = undistortNormalized(0, (nearestV - cy) / fy, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
+    const [dx, dy, dz] = undistortNormalized((nearestU - cx) / fx, (nearestV - cy) / fy, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
+
+    const hFrontTheta = Math.atan(Math.hypot(hx, hy));
+    const vFrontTheta = Math.atan(Math.hypot(vx, vy));
+    const dFrontTheta = Math.atan(Math.hypot(dx, dy));
+
+    const hFov = 2 * (hz < 0 ? (Math.PI - hFrontTheta) : hFrontTheta) * 180 / Math.PI;
+    const vFov = 2 * (vz < 0 ? (Math.PI - vFrontTheta) : vFrontTheta) * 180 / Math.PI;
+    const dFov = 2 * (dz < 0 ? (Math.PI - dFrontTheta) : dFrontTheta) * 180 / Math.PI;
+
     document.getElementById('hFovLabel').textContent = `hFOV: ${hFov.toFixed(2)}°`;
     document.getElementById('vFovLabel').textContent = `vFOV: ${vFov.toFixed(2)}°`;
     document.getElementById('dFovLabel').textContent = `dFOV: ${dFov.toFixed(2)}°`;
 }
 
-function setCurveUnitOptionState(option, enabled) {
-    const label = option.closest('label');
-    if (label) {
-        label.classList.toggle('hidden', !enabled);
-        label.classList.toggle('disabled-option', !enabled);
-    }
-    option.disabled = !enabled;
-    if (!enabled && option.checked) {
-        option.checked = false;
-    }
-}
+function syncCurveAxisUnitVisibility(axisKey) {
+    const axis = curveAxes[axisKey];
+    const { state } = axis;
+    const activeUnits = axis.unitOptions
+        .filter(option => option.dataset.unitKind === state.type)
+        .map(option => option.value);
 
-function applyCurveYUnitFamily(activeOptions) {
-    curveYUnitOptions.forEach(option => setCurveUnitOptionState(option, false));
-    activeOptions.forEach(option => setCurveUnitOptionState(option, true));
-}
-
-function syncCurveUnitVisibility() {
-    // X-axis: only angle mode currently supports selectable units.
-    if (curveXType === 'angle') {
-        // Show the X unit group and keep only angular units enabled/visible.
-        curveXUnitGroup.classList.remove('hidden');
-        curveXUnitOptions.forEach(option => {
-            const label = option.closest('label');
-            const show = ['deg', 'rad'].includes(option.value);
-            if (label) {
-                label.classList.toggle('hidden', !show);
-                label.classList.toggle('disabled-option', !show);
-            }
-            option.disabled = !show;
-            if (!show && option.checked) {
-                option.checked = false;
-            }
-        });
-        // Ensure X unit always falls back to a valid angular default.
-        if (curveXUnit !== 'deg' && curveXUnit !== 'rad') {
-            curveXUnitDeg.checked = true;
-            curveXUnit = 'deg';
+    axis.unitGroup.classList.toggle('hidden', activeUnits.length === 0);
+    axis.unitOptions.forEach(option => {
+        const enabled = activeUnits.includes(option.value);
+        const label = option.closest('label');
+        if (label) {
+            label.classList.toggle('hidden', !enabled);
+            label.classList.toggle('disabled-option', !enabled);
         }
-    } else {
-        // Hide/disable X units entirely for non-angle X-axis types.
-        curveXUnitGroup.classList.add('hidden');
-        curveXUnitOptions.forEach(option => {
-            const label = option.closest('label');
-            if (label) {
-                label.classList.add('disabled-option');
-            }
-            option.disabled = true;
-        });
+        option.disabled = !enabled;
+        if (!enabled && option.checked) {
+            option.checked = false;
+        }
+    });
+
+    if (activeUnits.length > 0 && !activeUnits.includes(state.unit)) {
+        state.unit = activeUnits[0];
     }
 
-    // Y-axis supports two configurable unit families: angle and image height.
-    if (curveYtype === 'angle') {
-        // Angle mode: keep only degree/radian options active.
-        curveYUnitGroup.classList.remove('hidden');
-        applyCurveYUnitFamily(curveYAngleUnits);
-        // Ensure Y unit has a valid angular default when needed.
-        if (!['deg', 'rad'].includes(curveYUnit)) {
-            curveYUnitDeg.checked = true;
-            curveYUnit = 'deg';
-        }
-    } else if (curveYtype === 'height') {
-        // Height mode: expose linear/image-height units and hide angle/slope choices.
-        curveYUnitGroup.classList.remove('hidden');
-        applyCurveYUnitFamily(curveYHeightUnits);
-        // Ensure Y unit has a valid height default when needed.
-        if (!['pixel', 'um', 'mm', 'cm', 'm'].includes(curveYUnit)) {
-            curveYUnitPixel.checked = true;
-            curveYUnit = 'pixel';
-        }
-    } else {
-        // For slope mode (or any unsupported type), hide and disable Y unit controls.
-        curveYUnitGroup.classList.add('hidden');
-        curveYUnitOptions.forEach(option => {
-            const label = option.closest('label');
-            if (label) {
-                label.classList.add('disabled-option');
-            }
-            option.disabled = true;
-        });
-    }
+    axis.unitOptions.forEach(option => {
+        option.checked = !option.disabled && option.value === state.unit;
+    });
 }
 
-function getXAxisLabel() {
-    switch (curveXType) {
-        case 'angle':
-            return `incoming ray angle (${curveXUnit})`;
-        default:
-            return 'incoming ray slope (tanθ)';
+function getCurveAxisLabel(axisKey) {
+    const axis = curveAxes[axisKey];
+    const { state } = axis;
+    if (state.type === 'angle' || state.type === 'height') {
+        return `${axis.labels[state.type] || state.type} (${state.unit})`;
     }
+    return axis.labels.slope || 'slope';
 }
 
-function getYAxisLabel() {
-    switch (curveYtype) {
-        case 'angle':
-            return `reflected ray angle (${curveYUnit})`;
-        case 'height':
-            return `image height (${curveYUnit})`;
-        default:
-            return 'reflected ray slope (tanθ)';
+function getCurveAxisValue(axisKey, slope, rayZ, focalLengthPx) {
+    const { state } = curveAxes[axisKey];
+    if (state.type === 'angle') {
+        const frontAngle = Math.atan(slope);
+        const angleRad = axisKey === 'x' && rayZ < 0 ? (Math.PI - frontAngle) : frontAngle;
+        return state.unit === 'rad' ? angleRad : angleRad * 180 / Math.PI;
     }
+    if (state.type === 'height') {
+        switch (state.unit) {
+            case 'pixel':
+                return focalLengthPx * slope;
+            case 'um':
+                return slope * 1e6;
+            case 'mm':
+                return slope * 1e3;
+            case 'cm':
+                return slope * 1e2;
+            case 'm':
+            default:
+                return slope;
+        }
+    }
+    return slope;
+}
+
+function bindCurveAxisControls(axisKey) {
+    const axis = curveAxes[axisKey];
+    axis.typeOptions.forEach(option => {
+        option.addEventListener('change', function () {
+            axis.state.type = this.value;
+            syncCurveAxisUnitVisibility(axisKey);
+            refreshCurveChart();
+        });
+    });
+
+    axis.unitOptions.forEach(option => {
+        option.addEventListener('change', function () {
+            axis.state.unit = this.value;
+            refreshCurveChart();
+        });
+    });
 }
 
 function initCurveChart() {
@@ -593,7 +580,7 @@ function initCurveChart() {
                     type: 'linear',
                     title: {
                         display: true,
-                        text: getXAxisLabel(),
+                        text: getCurveAxisLabel('x'),
                         color: '#000000'
                     },
                     border: { color: '#000000', width: 1 },
@@ -613,7 +600,7 @@ function initCurveChart() {
                     type: 'linear',
                     title: {
                         display: true,
-                        text: getYAxisLabel(),
+                        text: getCurveAxisLabel('y'),
                         color: '#000000'
                     },
                     border: { color: '#000000', width: 1 },
@@ -638,18 +625,8 @@ function buildCurveSeriesData() {
     const [iw, ih, fx, fy, cx, cy] = getIntrinsics();
     const [k1, k2, p1, p2, k3, k4, k5, k6, fisheye] = getDistortion();
     const samples = 100;
-    const corners = [[0, 0], [iw, 0], [0, ih], [iw, ih]];
-    let farthestCorner = corners[0];
-    let farthestDist2 = Number.NEGATIVE_INFINITY;
-    corners.forEach(corner => {
-        const du = corner[0] - cx;
-        const dv = corner[1] - cy;
-        const d2 = du * du + dv * dv;
-        if (d2 > farthestDist2) {
-            farthestDist2 = d2;
-            farthestCorner = corner;
-        }
-    });
+    const farthestU = cx > iw / 2 ? 0 : iw;
+    const farthestV = cy > ih / 2 ? 0 : ih;
 
     const xValues = [];
     const yValues = [];
@@ -660,51 +637,17 @@ function buildCurveSeriesData() {
 
     for (let i = 0; i < samples; i++) {
         const t = samples === 1 ? 0 : i / (samples - 1);
-        const u = cx + (farthestCorner[0] - cx) * t;
-        const v = cy + (farthestCorner[1] - cy) * t;
+        const u = cx + (farthestU - cx) * t;
+        const v = cy + (farthestV - cy) * t;
 
         const xDist = (u - cx) / fx;
         const yDist = (v - cy) / fy;
-        const [xu, yu] = undistortNormalized(xDist, yDist, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
+        const [xu, yu, zu] = undistortNormalized(xDist, yDist, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
         const incomingSlope = Math.hypot(xu, yu);
-        const [xd, yd] = applyDistortion(xu, yu, 1, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
-        const outputSlope = Math.hypot(xd, yd);
+        const outputSlope = Math.hypot(xDist, yDist);
 
-        let xValue;
-        if (curveXType === 'angle') {
-            const angleRad = Math.atan(incomingSlope);
-            xValue = curveXUnit === 'rad' ? angleRad : angleRad * 180 / Math.PI;
-        } else {
-            xValue = incomingSlope;
-        }
-
-        let yValue;
-        if (curveYtype === 'angle') {
-            yValue = curveYUnit === 'rad'
-                ? Math.atan(outputSlope)
-                : Math.atan(outputSlope) * 180 / Math.PI;
-        } else if (curveYtype === 'height') {
-            switch (curveYUnit) {
-                case 'pixel':
-                    yValue = fy * outputSlope;
-                    break;
-                case 'um':
-                    yValue = outputSlope * 1e6;
-                    break;
-                case 'mm':
-                    yValue = outputSlope * 1e3;
-                    break;
-                case 'cm':
-                    yValue = outputSlope * 1e2;
-                    break;
-                case 'm':
-                default:
-                    yValue = outputSlope;
-                    break;
-            }
-        } else {
-            yValue = outputSlope;
-        }
+        const xValue = getCurveAxisValue('x', incomingSlope, zu, fx);
+        const yValue = getCurveAxisValue('y', outputSlope, zu, fy);
 
         if (isFinite(xValue) && isFinite(yValue)) {
             xValues.push(xValue);
@@ -755,8 +698,8 @@ function refreshCurveChart() {
     curveChart.options.scales.x.max = xMax;
     curveChart.options.scales.y.min = yMin;
     curveChart.options.scales.y.max = yMax;
-    curveChart.options.scales.x.title.text = getXAxisLabel();
-    curveChart.options.scales.y.title.text = getYAxisLabel();
+    curveChart.options.scales.x.title.text = getCurveAxisLabel('x');
+    curveChart.options.scales.y.title.text = getCurveAxisLabel('y');
     curveChart.update('none');
 }
 
@@ -831,11 +774,11 @@ function updateParameter(id, value) {
     switch (id) {
         // Intrinsic
         case 'iw':
-            update_iw();
+            updateImageDimension('iw');
             chessCanvas._undistortTable = null;
             break;
         case 'ih':
-            update_ih();
+            updateImageDimension('ih');
             chessCanvas._undistortTable = null;
             break;
         case 'fx':
@@ -912,25 +855,21 @@ function updateParameter(id, value) {
 }
 
 // update cx and canvas size when iw changes, keeping cx in the center by default. This function is called whenever the image width (iw) parameter is changed, and it updates the principal point cx to be at the center of the new image width by default. It also updates the maximum value of the cx slider to match the new image width, and resizes the canvas accordingly to maintain the correct aspect ratio based on the new image dimensions.
-function update_iw() {
+function updateImageDimension(changedId) {
     const iw = parseFloat(document.getElementById('iw').value);
     const ih = parseFloat(document.getElementById('ih').value);
-    const cx = iw / 2;
-    document.getElementById('cx').max = iw;
-    document.getElementById('cx').value = cx;
-    document.getElementById('cxText').value = cx;
 
-    chessCanvas.height = ih * chessCanvas.width / iw;
-}
-
-// update cy and canvas size when ih changes, keeping cy in the center by default. This function is called whenever the image height (ih) parameter is changed, and it updates the principal point cy to be at the center of the new image height by default. It also updates the maximum value of the cy slider to match the new image height, and resizes the canvas accordingly to maintain the correct aspect ratio based on the new image dimensions.
-function update_ih() {
-    const ih = parseFloat(document.getElementById('ih').value);
-    const iw = parseFloat(document.getElementById('iw').value);
-    const cy = ih / 2;
-    document.getElementById('cy').max = ih;
-    document.getElementById('cy').value = cy;
-    document.getElementById('cyText').value = cy;
+    if (changedId === 'iw') {
+        const cx = iw / 2;
+        document.getElementById('cx').max = iw;
+        document.getElementById('cx').value = cx;
+        document.getElementById('cxText').value = cx;
+    } else {
+        const cy = ih / 2;
+        document.getElementById('cy').max = ih;
+        document.getElementById('cy').value = cy;
+        document.getElementById('cyText').value = cy;
+    }
 
     chessCanvas.height = ih * chessCanvas.width / iw;
 }
@@ -1053,35 +992,8 @@ viewCurveBtn.addEventListener('click', function () {
     refreshCurveChart();
 });
 
-curveXTypeOptions.forEach(option => {
-    option.addEventListener('change', function () {
-        curveXType = this.value;
-        syncCurveUnitVisibility();
-        refreshCurveChart();
-    });
-});
-
-curveXUnitOptions.forEach(option => {
-    option.addEventListener('change', function () {
-        curveXUnit = this.value;
-        refreshCurveChart();
-    });
-});
-
-curveYTypeOptions.forEach(option => {
-    option.addEventListener('change', function () {
-        curveYtype = this.value;
-        syncCurveUnitVisibility();
-        refreshCurveChart();
-    });
-});
-
-curveYUnitOptions.forEach(option => {
-    option.addEventListener('change', function () {
-        curveYUnit = this.value;
-        refreshCurveChart();
-    });
-});
+bindCurveAxisControls('x');
+bindCurveAxisControls('y');
 
 // Reset
 document.getElementById('reset').addEventListener('click', () => location.reload());
@@ -1091,7 +1003,8 @@ initCurveChart();
 toggleChessUI(true);
 toggleCurveUI(false);
 updateExtrinsicModeButtons('world2cam');
-syncCurveUnitVisibility();
+syncCurveAxisUnitVisibility('x');
+syncCurveAxisUnitVisibility('y');
 updateFovDisplay();
 
 // initial draw
