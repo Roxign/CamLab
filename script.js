@@ -5,6 +5,8 @@ chessCanvas._undistortTable = null;
 
 const world2camBtn = document.getElementById('world2cam');
 const cam2worldBtn = document.getElementById('cam2world');
+const centerAtTlBtn = document.getElementById('centerAtTL');
+const centerAtCenterBtn = document.getElementById('centerAtCenter');
 
 const viewCurveBtn = document.getElementById('viewCurve');
 const curveCanvas = document.getElementById('curveCanvas');
@@ -67,16 +69,26 @@ function getChessboardSettings() {
         parseFloat(document.getElementById('br').value),
         parseFloat(document.getElementById('bw').value),
         parseFloat(document.getElementById('bh').value),
-        document.getElementById('center').checked,
+        centerAtCenterBtn.classList.contains('active'),
         document.getElementById('showSquares').checked,
         document.getElementById('showCircles').checked
     ];
 }
 
+function updateChessboardOriginTabs(mode = 'center') {
+    const isCenter = mode === 'center';
+    centerAtCenterBtn.classList.toggle('active', isCenter);
+    centerAtTlBtn.classList.toggle('active', !isCenter);
+    centerAtCenterBtn.setAttribute('aria-selected', isCenter ? 'true' : 'false');
+    centerAtTlBtn.setAttribute('aria-selected', isCenter ? 'false' : 'true');
+}
+
 function toggleChessUI(enabled) {
     viewChessboardBtn.classList.toggle('active', enabled);
+    viewChessboardBtn.setAttribute('aria-selected', enabled ? 'true' : 'false');
     if (enabled) {
         viewCurveBtn.classList.remove('active');
+        viewCurveBtn.setAttribute('aria-selected', 'false');
         chessCanvas.classList.remove('hidden');
         chessCanvas.style.display = 'block';
     } else {
@@ -87,8 +99,10 @@ function toggleChessUI(enabled) {
 
 function toggleCurveUI(enabled) {
     viewCurveBtn.classList.toggle('active', enabled);
+    viewCurveBtn.setAttribute('aria-selected', enabled ? 'true' : 'false');
     if (enabled) {
         viewChessboardBtn.classList.remove('active');
+        viewChessboardBtn.setAttribute('aria-selected', 'false');
         curveAxisOptions.classList.remove('hidden');
         curveCanvas.classList.remove('hidden');
         curveCanvas.style.display = 'block';
@@ -103,9 +117,13 @@ function updateExtrinsicModeButtons(mode = 'world2cam') {
     if (mode === 'world2cam') {
         world2camBtn.classList.add('active');
         cam2worldBtn.classList.remove('active');
+        world2camBtn.setAttribute('aria-selected', 'true');
+        cam2worldBtn.setAttribute('aria-selected', 'false');
     } else {
         cam2worldBtn.classList.add('active');
         world2camBtn.classList.remove('active');
+        cam2worldBtn.setAttribute('aria-selected', 'true');
+        world2camBtn.setAttribute('aria-selected', 'false');
     }
 }
 
@@ -947,9 +965,15 @@ document.getElementById('bw').addEventListener('input', function () { updateValu
 document.getElementById('bwText').addEventListener('input', function () { updateValuesFromTextBox('bw'); });
 document.getElementById('bh').addEventListener('input', function () { updateValuesFromSlider('bh'); });
 document.getElementById('bhText').addEventListener('input', function () { updateValuesFromTextBox('bh'); });
-document.getElementById('center').addEventListener('input', function () {
+function switchChessboardOrigin(targetMode) {
+    const isCenterNow = centerAtCenterBtn.classList.contains('active');
+    const targetCenter = targetMode === 'center';
+    if (isCenterNow === targetCenter) {
+        return;
+    }
+
     const [bc, br, bw, bh] = getChessboardSettings();
-    const previousCenter = !this.checked;
+    const previousCenter = isCenterNow;
     // when toggling center, we want to keep the board visually fixed in place. To do this, we compute the world-space translation that corresponds to the shift in board position, rotate it into camera space using the current world->camera rotation, and apply the opposite translation to the camera so that the board appears stationary. This allows us to toggle between a centered and non-centered board without it jumping around in the view.
     let halfbw = ((bc - 1) / 2) * bw;
     let halfbh = ((br - 1) / 2) * bh;
@@ -966,8 +990,20 @@ document.getElementById('center').addEventListener('input', function () {
     tz_wc += tdz;
 
     // sync and refresh UI
+    updateChessboardOriginTabs(targetMode);
     syncExtrinsicsFromWorldToCamera();
     updateExtrinsicControls();
+    if (viewChessboardBtn.classList.contains('active')) {
+        renderChessboard();
+    }
+}
+
+centerAtTlBtn.addEventListener('click', function () {
+    switchChessboardOrigin('tl');
+});
+
+centerAtCenterBtn.addEventListener('click', function () {
+    switchChessboardOrigin('center');
 });
 document.getElementById('showSquares').addEventListener('input', function () {
     if (viewChessboardBtn.classList.contains('active')) {
@@ -1003,6 +1039,7 @@ initCurveChart();
 toggleChessUI(true);
 toggleCurveUI(false);
 updateExtrinsicModeButtons('world2cam');
+updateChessboardOriginTabs('center');
 syncCurveAxisUnitVisibility('x');
 syncCurveAxisUnitVisibility('y');
 updateFovDisplay();

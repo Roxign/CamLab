@@ -11,9 +11,9 @@
 <body>
     <div class="column">
         <!-- <h1 style="text-align: center;">Camera Intrinsic & Distortion Visualization</h1> -->
-        <div class="view-toggle-row">
-            <button id="viewChessboard" type="button">Chessboard View</button>
-            <button id="viewCurve" type="button">Distortion Curve</button>
+        <div class="view-tab-row" role="tablist" aria-label="Visualization view tabs">
+            <button id="viewChessboard" type="button" role="tab" aria-selected="true" aria-controls="canvas">Chessboard</button>
+            <button id="viewCurve" type="button" role="tab" aria-selected="false" aria-controls="curveCanvas">Distortion Curve</button>
         </div>
         <div class="canvas-stack">
             <canvas id="canvas" width="640" height="360"></canvas>
@@ -151,9 +151,9 @@
             <!-- Extrinsic -->
             <div class="extrinsic-header-row">
                 <label style="font-family: 'sans-serif'; font-weight: bold; font-size: 20px;">Extrinsic:</label>
-                <div class="extrinsic-mode-row">
-                    <button id="world2cam" type="button" class="active">world2cam</button>
-                    <button id="cam2world" type="button">cam2world</button>
+                <div class="extrinsic-mode-row" role="tablist" aria-label="Extrinsic transform mode tabs">
+                    <button id="world2cam" type="button" role="tab" aria-selected="true" class="active">world2cam</button>
+                    <button id="cam2world" type="button" role="tab" aria-selected="false">cam2world</button>
                 </div>
             </div>
             <div>
@@ -187,8 +187,12 @@
                 <input type="range" id="tz" name="tz" min="-10000" max="10000" value="1000">
             </div>
             <!-- Chessboard -->
-            <div>
+            <div class="chessboard-header-row">
                 <label style="font-family: 'sans-serif'; font-weight: bold; font-size: 20px;">Chessboard:</label>
+                <div class="center-mode-row" role="tablist" aria-label="Chessboard coordinate origin tabs">
+                    <button id="centerAtTL" type="button" role="tab" aria-selected="false" title="Chessboard coordinate system starts at top-left">TL-CS</button>
+                    <button id="centerAtCenter" type="button" role="tab" aria-selected="true" class="active" title="Chessboard coordinate system is centered">CT-CS</button>
+                </div>
             </div>
             <div>
                 <!-- number of inner corners along width (bc) and height (br) -->
@@ -210,10 +214,6 @@
                 <label for="bh">bh</label>
                 <input type="text" id="bhText" value="100">
                 <input type="range" id="bh" name="bh" min="1" max="1000" value="100">
-            </div>
-            <div>
-                <label for="center">→←</label>
-                <input type="checkbox" id="center" name="center" checked="true">
             </div>
             <div>
                 <label for="showSquares">■□</label>

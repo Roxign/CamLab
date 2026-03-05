@@ -21,20 +21,26 @@ body {
     width: 640px;
 }
 
-.view-toggle-row {
+.view-tab-row {
     display: flex;
     flex-direction: row;
-    gap: 8px;
-    justify-content: center;
+    gap: 0;
+    justify-content: flex-start;
+    border-bottom: 1px solid #bbb;
 }
 
-.view-toggle-row button {
-    min-width: 100px;
+.view-tab-row button {
+    min-width: 130px;
     height: 30px;
+    border: 1px solid #bbb;
+    border-bottom: none;
+    background: #ececec;
+    margin-bottom: -1px;
 }
 
-.view-toggle-row button.active {
+.view-tab-row button.active {
     font-weight: bold;
+    background: #fff;
 }
 
 .extrinsic-header-row {
@@ -45,19 +51,56 @@ body {
     gap: 8px;
 }
 
+.chessboard-header-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
 .extrinsic-mode-row {
     display: flex;
     flex-direction: row;
-    gap: 6px;
+    gap: 0;
+    border-bottom: 1px solid #bbb;
 }
 
 .extrinsic-mode-row button {
+    min-width: 92px;
     height: 24px;
     font-size: 12px;
+    border: 1px solid #bbb;
+    border-bottom: none;
+    background: #ececec;
+    margin-bottom: -1px;
 }
 
 .extrinsic-mode-row button.active {
     font-weight: bold;
+    background: #fff;
+}
+
+.center-mode-row {
+    display: flex;
+    flex-direction: row;
+    gap: 0;
+    border-bottom: 1px solid #bbb;
+}
+
+.center-mode-row button {
+    min-width: 74px;
+    height: 24px;
+    font-size: 12px;
+    border: 1px solid #bbb;
+    border-bottom: none;
+    background: #ececec;
+    margin-bottom: -1px;
+}
+
+.center-mode-row button.active {
+    font-weight: bold;
+    background: #fff;
 }
 
 .curve-axis-options {
