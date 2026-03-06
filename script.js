@@ -5,14 +5,27 @@ chessCanvas._undistortTable = null;
 
 const world2camBtn = document.getElementById('world2cam');
 const cam2worldBtn = document.getElementById('cam2world');
-const centerAtTlBtn = document.getElementById('centerAtTL');
-const centerAtCenterBtn = document.getElementById('centerAtCenter');
+const centerAtTLBtn = document.getElementById('centerAtTL');
+const centerAtCTBtn = document.getElementById('centerAtCenter');
 
 const viewCurveBtn = document.getElementById('viewCurve');
 const curveCanvas = document.getElementById('curveCanvas');
 const curveCtx = curveCanvas.getContext('2d');
 
 const curveAxisOptions = document.getElementById('curveAxisOptions');
+const curveDirectionAngleSlider = document.getElementById('curveDirectionAngle');
+const curveDirectionAngleText = document.getElementById('curveDirectionAngleText');
+const directionCanvas = document.getElementById('directionCanvas');
+const directionCtx = directionCanvas.getContext('2d');
+
+const DIRECTION_CANVAS_MAX_WIDTH = 220;
+const DIRECTION_CANVAS_MAX_HEIGHT = 124;
+const DIRECTION_ARROW_EXTRA_PX = 20;
+
+const curveDirectionState = {
+    stopU: null,
+    stopV: null
+};
 
 const curveAxisKeys = ['x', 'y'];
 
@@ -40,6 +53,7 @@ let rx_cw = 0, ry_cw = 0, rz_cw = 0, tx_cw = 0, ty_cw = 0, tz_cw = -1000;
 
 function getIntrinsics() {
     return [
+        parseFloat(document.getElementById('psText').value),
         parseFloat(document.getElementById('iw').value),
         parseFloat(document.getElementById('ih').value),
         parseFloat(document.getElementById('fx').value),
@@ -69,7 +83,7 @@ function getChessboardSettings() {
         parseFloat(document.getElementById('br').value),
         parseFloat(document.getElementById('bw').value),
         parseFloat(document.getElementById('bh').value),
-        centerAtCenterBtn.classList.contains('active'),
+        centerAtCTBtn.classList.contains('active'),
         document.getElementById('showSquares').checked,
         document.getElementById('showCircles').checked
     ];
@@ -77,10 +91,10 @@ function getChessboardSettings() {
 
 function updateChessboardOriginTabs(mode = 'center') {
     const isCenter = mode === 'center';
-    centerAtCenterBtn.classList.toggle('active', isCenter);
-    centerAtTlBtn.classList.toggle('active', !isCenter);
-    centerAtCenterBtn.setAttribute('aria-selected', isCenter ? 'true' : 'false');
-    centerAtTlBtn.setAttribute('aria-selected', isCenter ? 'false' : 'true');
+    centerAtCTBtn.classList.toggle('active', isCenter);
+    centerAtTLBtn.classList.toggle('active', !isCenter);
+    centerAtCTBtn.setAttribute('aria-selected', isCenter ? 'true' : 'false');
+    centerAtTLBtn.setAttribute('aria-selected', isCenter ? 'false' : 'true');
 }
 
 function toggleChessUI(enabled) {
@@ -377,7 +391,7 @@ function updateUndistortTable(iw, ih, fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, k5
 
 // render the chessboard and corners based on current parameters. If "showSquares" is enabled, it uses the undistortion table to determine the color of each pixel by raycasting from the camera through the distorted image plane into the world to see what color it hits on the chessboard. If "showCircles" is enabled, it projects the 3D corner points and draws filled circles at their locations, colored red if they are in front of the camera and blue if they are behind, which helps visualize how the extrinsic parameters affect the projection of points in space.
 function renderChessboard() {
-    const [iw, ih, fx, fy, cx, cy] = getIntrinsics();
+    const [, iw, ih, fx, fy, cx, cy] = getIntrinsics();
     const [k1, k2, p1, p2, k3, k4, k5, k6, fisheye] = getDistortion();
     const [bc, br, bw, bh, center, showSquares, showCircles] = getChessboardSettings();
     chessCtx.clearRect(0, 0, chessCanvas.width, chessCanvas.height);
@@ -451,7 +465,7 @@ function renderChessboard() {
 }
 
 function updateFovDisplay() {
-    const [iw, ih, fx, fy, cx, cy] = getIntrinsics();
+    const [, iw, ih, fx, fy, cx, cy] = getIntrinsics();
     const [k1, k2, p1, p2, k3, k4, k5, k6, fisheye] = getDistortion();
 
     const nearestU = (cx > iw / 2) ? iw : 0;
@@ -513,7 +527,7 @@ function getCurveAxisLabel(axisKey) {
     return axis.labels.slope || 'slope';
 }
 
-function getCurveAxisValue(axisKey, slope, rayZ, focalLengthPx) {
+function getCurveAxisValue(axisKey, slope, rayZ, focalLengthPx, pixelSizeUm) {
     const { state } = curveAxes[axisKey];
     if (state.type === 'angle') {
         const frontAngle = Math.atan(slope);
@@ -521,18 +535,21 @@ function getCurveAxisValue(axisKey, slope, rayZ, focalLengthPx) {
         return state.unit === 'rad' ? angleRad : angleRad * 180 / Math.PI;
     }
     if (state.type === 'height') {
+        const heightPixel = focalLengthPx * slope;
+        const pixelPitchUm = isFinite(pixelSizeUm) && pixelSizeUm > 0 ? pixelSizeUm : 1;
+        const heightUm = heightPixel * pixelPitchUm;
         switch (state.unit) {
             case 'pixel':
-                return focalLengthPx * slope;
+                return heightPixel;
             case 'um':
-                return slope * 1e6;
+                return heightUm;
             case 'mm':
-                return slope * 1e3;
+                return heightUm / 1e3;
             case 'cm':
-                return slope * 1e2;
+                return heightUm / 1e4;
             case 'm':
             default:
-                return slope;
+                return heightUm / 1e6;
         }
     }
     return slope;
@@ -554,6 +571,121 @@ function bindCurveAxisControls(axisKey) {
             refreshCurveChart();
         });
     });
+}
+
+function normalizeDirectionAngleDeg(angleDeg) {
+    if (!isFinite(angleDeg)) return 0;
+    let wrapped = angleDeg % 360;
+    if (wrapped > 180) wrapped -= 360;
+    if (wrapped < -180) wrapped += 360;
+    return wrapped;
+}
+
+function setCurveDirectionAngle(angleDeg) {
+    const normalized = normalizeDirectionAngleDeg(angleDeg);
+    curveDirectionAngleSlider.value = normalized;
+    curveDirectionAngleText.value = normalized;
+    refreshCurveChart();
+}
+
+function getCurveDirectionUnitVector() {
+    const directionDeg = parseFloat(curveDirectionAngleSlider.value);
+    const directionRad = directionDeg * Math.PI / 180;
+    const dirX = Math.cos(directionRad);
+    const dirY = -Math.sin(directionRad);
+    const norm = Math.hypot(dirX, dirY) || 1;
+    return [dirX / norm, dirY / norm];
+}
+
+function renderDirectionCanvas() {
+    const [, iw, ih, , , cx, cy] = getIntrinsics();
+    if (!isFinite(iw) || !isFinite(ih) || iw <= 0 || ih <= 0) {
+        directionCanvas.width = DIRECTION_CANVAS_MAX_WIDTH;
+        directionCanvas.height = DIRECTION_CANVAS_MAX_HEIGHT;
+        directionCanvas.style.width = `${DIRECTION_CANVAS_MAX_WIDTH}px`;
+        directionCanvas.style.height = `${DIRECTION_CANVAS_MAX_HEIGHT}px`;
+    } else {
+        const scale = Math.min(DIRECTION_CANVAS_MAX_WIDTH / iw, DIRECTION_CANVAS_MAX_HEIGHT / ih, 1);
+        const displayWidth = Math.max(1, Math.round(iw * scale));
+        const displayHeight = Math.max(1, Math.round(ih * scale));
+        directionCanvas.width = displayWidth;
+        directionCanvas.height = displayHeight;
+        directionCanvas.style.width = `${displayWidth}px`;
+        directionCanvas.style.height = `${displayHeight}px`;
+    }
+
+    const width = directionCanvas.width;
+    const height = directionCanvas.height;
+    directionCtx.clearRect(0, 0, width, height);
+    directionCtx.fillStyle = '#ffffff';
+    directionCtx.fillRect(0, 0, width, height);
+
+    directionCtx.strokeStyle = '#000000';
+    directionCtx.lineWidth = 1;
+    directionCtx.strokeRect(0.5, 0.5, width - 1, height - 1);
+
+    const scaleX = width / iw;
+    const scaleY = height / ih;
+    const centerX = cx * scaleX;
+    const centerY = cy * scaleY;
+
+    directionCtx.strokeStyle = '#bbbbbb';
+    directionCtx.beginPath();
+    directionCtx.moveTo(0, centerY + 0.5);
+    directionCtx.lineTo(width, centerY + 0.5);
+    directionCtx.moveTo(centerX + 0.5, 0);
+    directionCtx.lineTo(centerX + 0.5, height);
+    directionCtx.stroke();
+
+    directionCtx.fillStyle = '#0b63f6';
+    directionCtx.beginPath();
+    directionCtx.arc(centerX, centerY, 3, 0, 2 * Math.PI);
+    directionCtx.fill();
+
+    const [dirX, dirY] = getCurveDirectionUnitVector();
+    let boundaryDistance = Infinity;
+    if (Math.abs(dirX) > 1e-12) {
+        const tx = dirX > 0 ? (iw - cx) / dirX : (0 - cx) / dirX;
+        if (tx > 0) boundaryDistance = Math.min(boundaryDistance, tx);
+    }
+    if (Math.abs(dirY) > 1e-12) {
+        const ty = dirY > 0 ? (ih - cy) / dirY : (0 - cy) / dirY;
+        if (ty > 0) boundaryDistance = Math.min(boundaryDistance, ty);
+    }
+    boundaryDistance = isFinite(boundaryDistance) ? boundaryDistance : 0;
+
+    let stopDistance = Infinity;
+    if (isFinite(curveDirectionState.stopU) && isFinite(curveDirectionState.stopV)) {
+        const stopDx = curveDirectionState.stopU - cx;
+        const stopDy = curveDirectionState.stopV - cy;
+        const projectedDistance = stopDx * dirX + stopDy * dirY;
+        if (projectedDistance > 0) {
+            stopDistance = projectedDistance;
+        }
+    }
+
+    const baseDistance = Math.min(boundaryDistance, stopDistance);
+    const arrowDistance = (isFinite(baseDistance) ? baseDistance : boundaryDistance) + DIRECTION_ARROW_EXTRA_PX;
+    const endU = cx + dirX * arrowDistance;
+    const endV = cy + dirY * arrowDistance;
+    const endX = endU * scaleX;
+    const endY = endV * scaleY;
+
+    directionCtx.strokeStyle = '#0b63f6';
+    directionCtx.lineWidth = 2;
+    directionCtx.beginPath();
+    directionCtx.moveTo(centerX, centerY);
+    directionCtx.lineTo(endX, endY);
+    directionCtx.stroke();
+
+    const headLength = 6;
+    const angle = Math.atan2(endY - centerY, endX - centerX);
+    directionCtx.beginPath();
+    directionCtx.moveTo(endX, endY);
+    directionCtx.lineTo(endX - headLength * Math.cos(angle - Math.PI / 6), endY - headLength * Math.sin(angle - Math.PI / 6));
+    directionCtx.moveTo(endX, endY);
+    directionCtx.lineTo(endX - headLength * Math.cos(angle + Math.PI / 6), endY - headLength * Math.sin(angle + Math.PI / 6));
+    directionCtx.stroke();
 }
 
 function initCurveChart() {
@@ -590,6 +722,14 @@ function initCurveChart() {
             animation: false,
             responsive: false,
             maintainAspectRatio: false,
+            layout: {
+                padding: {
+                    left: 6,
+                    right: 6,
+                    top: 6,
+                    bottom: 2
+                }
+            },
             plugins: {
                 legend: { display: false }
             },
@@ -639,93 +779,106 @@ function initCurveChart() {
     });
 }
 
-function buildCurveSeriesData() {
-    const [iw, ih, fx, fy, cx, cy] = getIntrinsics();
+function refreshCurveChart() {
+    const curveChart = curveCanvas._curveChart;
+    if (!curveChart) return;
+
+    const [pixelSizeUm, iw, ih, fx, fy, cx, cy] = getIntrinsics();
     const [k1, k2, p1, p2, k3, k4, k5, k6, fisheye] = getDistortion();
-    const samples = 100;
-    const farthestU = cx > iw / 2 ? 0 : iw;
-    const farthestV = cy > ih / 2 ? 0 : ih;
+    const incomingStepDeg = 0.5;
+    const incomingStepRad = incomingStepDeg * Math.PI / 180;
+    const maxIncomingAngleRad = Math.PI - 1e-6;
+    const reverseTailSteps = 20;
+    const reverseTolerance = 1e-6;
+    const maxSteps = Math.ceil(maxIncomingAngleRad / incomingStepRad) + reverseTailSteps + 1;
+    const [rayDirX, rayDirY] = getCurveDirectionUnitVector();
+    const ensureRange = (min, max) => (
+        isFinite(min) && isFinite(max) && min !== max ? [min, max] : [0, 1]
+    );
 
-    const xValues = [];
-    const yValues = [];
-    let xMin = Number.POSITIVE_INFINITY;
-    let xMax = Number.NEGATIVE_INFINITY;
-    let yMin = Number.POSITIVE_INFINITY;
-    let yMax = Number.NEGATIVE_INFINITY;
+    const points = [];
+    let xMin = Infinity, xMax = -Infinity;
+    let yMin = Infinity, yMax = -Infinity;
+    let previousReflectedAngle = null;
+    let reverseTailCountdown = -1;
+    let stopU = null, stopV = null;
 
-    for (let i = 0; i < samples; i++) {
-        const t = samples === 1 ? 0 : i / (samples - 1);
-        const u = cx + (farthestU - cx) * t;
-        const v = cy + (farthestV - cy) * t;
+    for (let i = 0; i < maxSteps; i++) {
+        const angle = Math.min(i * incomingStepRad, maxIncomingAngleRad);
+        const rayZ = angle > Math.PI * 0.5 ? -1 : 1;
+        const incomingSlope = Math.tan(rayZ > 0 ? angle : (Math.PI - angle));
+        const xu = rayDirX * incomingSlope;
+        const yu = rayDirY * incomingSlope;
+        const [xDist, yDist] = applyDistortion(xu, yu, rayZ, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
 
-        const xDist = (u - cx) / fx;
-        const yDist = (v - cy) / fy;
-        const [xu, yu, zu] = undistortNormalized(xDist, yDist, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
-        const incomingSlope = Math.hypot(xu, yu);
-        const outputSlope = Math.hypot(xDist, yDist);
+        const u = fx * xDist + cx;
+        const v = fy * yDist + cy;
+        const inResolution = u >= 0 && u <= iw && v >= 0 && v <= ih;
+        if (!inResolution) {
+            break;
+        }
+        stopU = u;
+        stopV = v;
 
-        const xValue = getCurveAxisValue('x', incomingSlope, zu, fx);
-        const yValue = getCurveAxisValue('y', outputSlope, zu, fy);
+        const reflectedAngle = Math.atan(Math.hypot(xDist, yDist));
+        if (previousReflectedAngle !== null && reverseTailCountdown < 0) {
+            if (reflectedAngle < previousReflectedAngle - reverseTolerance) {
+                reverseTailCountdown = reverseTailSteps;
+            }
+        }
+        previousReflectedAngle = reflectedAngle;
 
-        if (isFinite(xValue) && isFinite(yValue)) {
-            xValues.push(xValue);
-            yValues.push(yValue);
-            xMin = Math.min(xMin, xValue);
-            xMax = Math.max(xMax, xValue);
-            yMin = Math.min(yMin, yValue);
-            yMax = Math.max(yMax, yValue);
+        const xValue = getCurveAxisValue('x', incomingSlope, rayZ, fx, pixelSizeUm);
+        const yValue = getCurveAxisValue('y', Math.hypot(xDist, yDist), rayZ, fy, pixelSizeUm);
+        if (!isFinite(xValue) || !isFinite(yValue)) continue;
+
+        points.push({ x: xValue, y: yValue });
+        xMin = Math.min(xMin, xValue);
+        xMax = Math.max(xMax, xValue);
+        yMin = Math.min(yMin, yValue);
+        yMax = Math.max(yMax, yValue);
+
+        if (reverseTailCountdown === 0) {
+            break;
+        }
+        if (reverseTailCountdown > 0) {
+            reverseTailCountdown--;
+        }
+
+        if (angle >= maxIncomingAngleRad) {
+            break;
         }
     }
 
-    return [xValues, yValues, xMin, xMax, yMin, yMax];
-}
-
-function refreshCurveChart() {
-    const curveChart = curveCanvas._curveChart;
-    if (!curveChart) {
-        return;
-    }
-    const [xValues, yValues, rawXMin, rawXMax, rawYMin, rawYMax] = buildCurveSeriesData();
-
-    let xMin = rawXMin;
-    let xMax = rawXMax;
-    let yMin = rawYMin;
-    let yMax = rawYMax;
-
-    if (!isFinite(xMin) || !isFinite(xMax) || xMin === xMax) {
-        xMin = 0;
-        xMax = 1;
-    }
-
-    if (!isFinite(yMin) || !isFinite(yMax) || yMin === yMax) {
-        yMin = 0;
-        yMax = 1;
-    }
+    [xMin, xMax] = ensureRange(xMin, xMax);
+    [yMin, yMax] = ensureRange(yMin, yMax);
 
     const xPad = (xMax - xMin) * 0.05 || 0.05;
-    xMin -= xPad;
-    xMax += xPad;
     const yPad = (yMax - yMin) * 0.1 || 0.1;
-    yMin -= yPad;
-    yMax += yPad;
-
-    const points = xValues.map((x, index) => ({ x, y: yValues[index] }));
 
     curveChart.data.datasets[0].data = points;
-    curveChart.options.scales.x.min = xMin;
-    curveChart.options.scales.x.max = xMax;
-    curveChart.options.scales.y.min = yMin;
-    curveChart.options.scales.y.max = yMax;
+    curveChart.options.scales.x.min = xMin - xPad;
+    curveChart.options.scales.x.max = xMax + xPad;
+    curveChart.options.scales.y.min = yMin - yPad;
+    curveChart.options.scales.y.max = yMax + yPad;
+    delete curveChart.options.scales.x.ticks.stepSize;
+    delete curveChart.options.scales.y.ticks.stepSize;
+
     curveChart.options.scales.x.title.text = getCurveAxisLabel('x');
     curveChart.options.scales.y.title.text = getCurveAxisLabel('y');
     curveChart.update('none');
+    curveDirectionState.stopU = stopU;
+    curveDirectionState.stopV = stopV;
+    renderDirectionCanvas();
 }
 
 // helper function to update parameter values and trigger a redraw when a slider or text box is changed. It takes the id of the parameter that was changed, updates the corresponding variable, and then calls drawPoints() to update the visualization. This function is called by both the slider and text box event handlers to keep them in sync and ensure that changes to either control update the parameter and redraw the scene.
 function updateValuesFromSlider(id) {
     const slider = document.getElementById(id);
     const textBox = document.getElementById(id + "Text");
-    textBox.value = slider.value;
+    if (textBox) {
+        textBox.value = slider.value;
+    }
     updateParameter(id, parseFloat(slider.value));
 }
 
@@ -733,7 +886,9 @@ function updateValuesFromSlider(id) {
 function updateValuesFromTextBox(id) {
     const textBox = document.getElementById(id + "Text");
     const slider = document.getElementById(id);
-    slider.value = textBox.value;
+    if (slider) {
+        slider.value = textBox.value;
+    }
     updateParameter(id, parseFloat(textBox.value));
 }
 
@@ -791,6 +946,8 @@ function updateExtrinsicControls() {
 function updateParameter(id, value) {
     switch (id) {
         // Intrinsic
+        case 'ps':
+            break;
         case 'iw':
             updateImageDimension('iw');
             chessCanvas._undistortTable = null;
@@ -874,8 +1031,7 @@ function updateParameter(id, value) {
 
 // update cx and canvas size when iw changes, keeping cx in the center by default. This function is called whenever the image width (iw) parameter is changed, and it updates the principal point cx to be at the center of the new image width by default. It also updates the maximum value of the cx slider to match the new image width, and resizes the canvas accordingly to maintain the correct aspect ratio based on the new image dimensions.
 function updateImageDimension(changedId) {
-    const iw = parseFloat(document.getElementById('iw').value);
-    const ih = parseFloat(document.getElementById('ih').value);
+    const [, iw, ih] = getIntrinsics();
 
     if (changedId === 'iw') {
         const cx = iw / 2;
@@ -893,6 +1049,7 @@ function updateImageDimension(changedId) {
 }
 
 // Intrinsics
+document.getElementById('psText').addEventListener('input', function () { updateValuesFromTextBox('ps'); });
 document.getElementById('iw').addEventListener('input', function () { updateValuesFromSlider('iw'); });
 document.getElementById('iwText').addEventListener('input', function () { updateValuesFromTextBox('iw'); });
 document.getElementById('ih').addEventListener('input', function () { updateValuesFromSlider('ih'); });
@@ -966,7 +1123,7 @@ document.getElementById('bwText').addEventListener('input', function () { update
 document.getElementById('bh').addEventListener('input', function () { updateValuesFromSlider('bh'); });
 document.getElementById('bhText').addEventListener('input', function () { updateValuesFromTextBox('bh'); });
 function switchChessboardOrigin(targetMode) {
-    const isCenterNow = centerAtCenterBtn.classList.contains('active');
+    const isCenterNow = centerAtCTBtn.classList.contains('active');
     const targetCenter = targetMode === 'center';
     if (isCenterNow === targetCenter) {
         return;
@@ -998,11 +1155,11 @@ function switchChessboardOrigin(targetMode) {
     }
 }
 
-centerAtTlBtn.addEventListener('click', function () {
+centerAtTLBtn.addEventListener('click', function () {
     switchChessboardOrigin('tl');
 });
 
-centerAtCenterBtn.addEventListener('click', function () {
+centerAtCTBtn.addEventListener('click', function () {
     switchChessboardOrigin('center');
 });
 document.getElementById('showSquares').addEventListener('input', function () {
@@ -1030,6 +1187,13 @@ viewCurveBtn.addEventListener('click', function () {
 
 bindCurveAxisControls('x');
 bindCurveAxisControls('y');
+curveDirectionAngleSlider.addEventListener('input', function () {
+    curveDirectionAngleText.value = this.value;
+    refreshCurveChart();
+});
+curveDirectionAngleText.addEventListener('input', function () {
+    setCurveDirectionAngle(parseFloat(this.value));
+});
 
 // Reset
 document.getElementById('reset').addEventListener('click', () => location.reload());
@@ -1042,6 +1206,7 @@ updateExtrinsicModeButtons('world2cam');
 updateChessboardOriginTabs('center');
 syncCurveAxisUnitVisibility('x');
 syncCurveAxisUnitVisibility('y');
+setCurveDirectionAngle(parseFloat(curveDirectionAngleSlider.value));
 updateFovDisplay();
 
 // initial draw

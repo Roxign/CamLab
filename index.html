@@ -52,6 +52,20 @@
                 <label><input type="radio" id="curveYUnitCm" name="curveYUnit" value="cm" data-curve-axis="y" data-curve-role="unit" data-unit-kind="height"> cm</label>
                 <label><input type="radio" id="curveYUnitM" name="curveYUnit" value="m" data-curve-axis="y" data-curve-role="unit" data-unit-kind="height"> m</label>
             </div>
+            <div class="curve-direction-row" id="curveDirectionControls">
+                <div class="curve-direction-inputs">
+                    <div class="curve-direction-angle-col">
+                        <div class="curve-direction-angle-row">
+                            <label for="curveDirectionAngleText">image-plane angle (deg)</label>
+                            <input type="text" id="curveDirectionAngleText" value="45">
+                        </div>
+                        <input type="range" id="curveDirectionAngle" min="-180" max="180" value="45" step="1">
+                    </div>
+                </div>
+                <div class="curve-direction-preview-wrap">
+                    <canvas id="directionCanvas" width="220" height="124"></canvas>
+                </div>
+            </div>
         </div>
     </div>
     <div class="controls">
@@ -60,6 +74,10 @@
             <!-- Intrinsic -->
             <div>
                 <label style="font-family: 'sans-serif'; font-weight: bold; font-size: 20px;">Intrinsic:</label>
+            </div>
+            <div class="pixel-size-row">
+                <label for="psText">um/px</label>
+                <input type="text" id="psText" value="1.0">
             </div>
             <div>
                 <label for="iw">iw</label>
@@ -90,11 +108,6 @@
                 <label for="cy">c<sub>y</sub></label>
                 <input type="text" id="cyText" value="540">
                 <input type="range" id="cy" name="cy" min="0" max="1080" value="540">
-            </div>
-            <div class="fov-row" id="fovRow">
-                <span id="hFovLabel">hFOV: 0.00°</span>
-                <span id="vFovLabel">vFOV: 0.00°</span>
-                <span id="dFovLabel">dFOV: 0.00°</span>
             </div>
 
             <!-- Distortion -->
@@ -144,6 +157,11 @@
             <div>
                 <label for="fisheye">KB</label>
                 <input type="checkbox" id="fisheye" name="fisheye">
+            </div>
+            <div class="fov-row" id="fovRow">
+                <span id="hFovLabel">hFOV: 0.00°</span>
+                <span id="vFovLabel">vFOV: 0.00°</span>
+                <span id="dFovLabel">dFOV: 0.00°</span>
             </div>
         </div>
         <div class="column">
