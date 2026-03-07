@@ -202,6 +202,35 @@ body {
     width: 220px;
 }
 
+.curve-direction-pad {
+    display: grid;
+    grid-template-columns: repeat(3, 36px);
+    gap: 4px;
+}
+
+.curve-direction-pad button {
+    width: 36px;
+    height: 28px;
+    border: 1px solid #bbb;
+    border-radius: 4px;
+    background: #ececec;
+    font-size: 11px;
+    padding: 0;
+    cursor: pointer;
+}
+
+.curve-direction-pad button:active {
+    background: #d9d9d9;
+}
+
+.curve-direction-pad-hole {
+    width: 36px;
+    height: 28px;
+    border: 1px dashed #bbb;
+    border-radius: 4px;
+    background: transparent;
+}
+
 .curve-direction-hint {
     color: #555;
 }
@@ -237,14 +266,6 @@ body {
     height: 20px;
     vertical-align: middle;
     margin-left: 0px;
-}
-
-.fov-row {
-    display: flex;
-    flex-direction: row;
-    gap: 12px;
-    font-family: monospace;
-    font-size: 12px;
 }
 
 .pixel-size-row label {

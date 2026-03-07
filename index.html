@@ -60,6 +60,17 @@
                             <input type="text" id="curveDirectionAngleText" value="45">
                         </div>
                         <input type="range" id="curveDirectionAngle" min="-180" max="180" value="45" step="1">
+                        <div class="curve-direction-pad" aria-label="Direction presets">
+                            <button type="button" data-curve-direction-target="TL" aria-label="Top-left">TL</button>
+                            <button type="button" data-curve-direction-target="T" aria-label="Top">T</button>
+                            <button type="button" data-curve-direction-target="TR" aria-label="Top-right">TR</button>
+                            <button type="button" data-curve-direction-target="L" aria-label="Left">L</button>
+                            <span class="curve-direction-pad-hole" aria-hidden="true"></span>
+                            <button type="button" data-curve-direction-target="R" aria-label="Right">R</button>
+                            <button type="button" data-curve-direction-target="BL" aria-label="Bottom-left">BL</button>
+                            <button type="button" data-curve-direction-target="B" aria-label="Bottom">B</button>
+                            <button type="button" data-curve-direction-target="BR" aria-label="Bottom-right">BR</button>
+                        </div>
                     </div>
                 </div>
                 <div class="curve-direction-preview-wrap">
@@ -157,11 +168,6 @@
             <div>
                 <label for="fisheye">KB</label>
                 <input type="checkbox" id="fisheye" name="fisheye">
-            </div>
-            <div class="fov-row" id="fovRow">
-                <span id="hFovLabel">hFOV: 0.00°</span>
-                <span id="vFovLabel">vFOV: 0.00°</span>
-                <span id="dFovLabel">dFOV: 0.00°</span>
             </div>
         </div>
         <div class="column">

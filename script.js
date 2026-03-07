@@ -15,12 +15,12 @@ const curveCtx = curveCanvas.getContext('2d');
 const curveAxisOptions = document.getElementById('curveAxisOptions');
 const curveDirectionAngleSlider = document.getElementById('curveDirectionAngle');
 const curveDirectionAngleText = document.getElementById('curveDirectionAngleText');
+const curveDirectionPresetButtons = Array.from(document.querySelectorAll('[data-curve-direction-target]'));
 const directionCanvas = document.getElementById('directionCanvas');
 const directionCtx = directionCanvas.getContext('2d');
 
 const DIRECTION_CANVAS_MAX_WIDTH = 220;
 const DIRECTION_CANVAS_MAX_HEIGHT = 124;
-const DIRECTION_ARROW_EXTRA_PX = 20;
 
 const curveDirectionState = {
     stopU: null,
@@ -464,30 +464,6 @@ function renderChessboard() {
     }
 }
 
-function updateFovDisplay() {
-    const [, iw, ih, fx, fy, cx, cy] = getIntrinsics();
-    const [k1, k2, p1, p2, k3, k4, k5, k6, fisheye] = getDistortion();
-
-    const nearestU = (cx > iw / 2) ? iw : 0;
-    const nearestV = (cy > ih / 2) ? ih : 0;
-
-    const [hx, hy, hz] = undistortNormalized((nearestU - cx) / fx, 0, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
-    const [vx, vy, vz] = undistortNormalized(0, (nearestV - cy) / fy, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
-    const [dx, dy, dz] = undistortNormalized((nearestU - cx) / fx, (nearestV - cy) / fy, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
-
-    const hFrontTheta = Math.atan(Math.hypot(hx, hy));
-    const vFrontTheta = Math.atan(Math.hypot(vx, vy));
-    const dFrontTheta = Math.atan(Math.hypot(dx, dy));
-
-    const hFov = 2 * (hz < 0 ? (Math.PI - hFrontTheta) : hFrontTheta) * 180 / Math.PI;
-    const vFov = 2 * (vz < 0 ? (Math.PI - vFrontTheta) : vFrontTheta) * 180 / Math.PI;
-    const dFov = 2 * (dz < 0 ? (Math.PI - dFrontTheta) : dFrontTheta) * 180 / Math.PI;
-
-    document.getElementById('hFovLabel').textContent = `hFOV: ${hFov.toFixed(2)}°`;
-    document.getElementById('vFovLabel').textContent = `vFOV: ${vFov.toFixed(2)}°`;
-    document.getElementById('dFovLabel').textContent = `dFOV: ${dFov.toFixed(2)}°`;
-}
-
 function syncCurveAxisUnitVisibility(axisKey) {
     const axis = curveAxes[axisKey];
     const { state } = axis;
@@ -588,6 +564,39 @@ function setCurveDirectionAngle(angleDeg) {
     refreshCurveChart();
 }
 
+function setCurveDirectionFromPreset(target) {
+    const [, iw, ih, , , cx, cy] = getIntrinsics();
+    if (!isFinite(iw) || !isFinite(ih) || !isFinite(cx) || !isFinite(cy)) {
+        return;
+    }
+
+    const targets = {
+        T: [cx, 0],
+        TR: [iw, 0],
+        R: [iw, cy],
+        BR: [iw, ih],
+        B: [cx, ih],
+        BL: [0, ih],
+        L: [0, cy],
+        TL: [0, 0]
+    };
+
+    const targetPoint = targets[target];
+    if (!targetPoint) {
+        return;
+    }
+
+    const [targetU, targetV] = targetPoint;
+    const deltaU = targetU - cx;
+    const deltaV = targetV - cy;
+    if (Math.abs(deltaU) < 1e-12 && Math.abs(deltaV) < 1e-12) {
+        return;
+    }
+
+    const angleDeg = Math.atan2(-deltaV, deltaU) * 180 / Math.PI;
+    setCurveDirectionAngle(angleDeg);
+}
+
 function getCurveDirectionUnitVector() {
     const directionDeg = parseFloat(curveDirectionAngleSlider.value);
     const directionRad = directionDeg * Math.PI / 180;
@@ -665,7 +674,7 @@ function renderDirectionCanvas() {
     }
 
     const baseDistance = Math.min(boundaryDistance, stopDistance);
-    const arrowDistance = (isFinite(baseDistance) ? baseDistance : boundaryDistance) + DIRECTION_ARROW_EXTRA_PX;
+    const arrowDistance = isFinite(baseDistance) ? baseDistance : boundaryDistance;
     const endU = cx + dirX * arrowDistance;
     const endV = cy + dirY * arrowDistance;
     const endX = endU * scaleX;
@@ -1021,7 +1030,6 @@ function updateParameter(id, value) {
             break;
     }
 
-    updateFovDisplay();
     if (viewChessboardBtn.classList.contains('active')) {
         renderChessboard();
     } else {
@@ -1082,7 +1090,6 @@ document.getElementById('k6').addEventListener('input', function () { updateValu
 document.getElementById('k6Text').addEventListener('input', function () { updateValuesFromTextBox('k6'); });
 document.getElementById('fisheye').addEventListener('input', function () {
     chessCanvas._undistortTable = null;
-    updateFovDisplay();
     if (viewChessboardBtn.classList.contains('active')) {
         renderChessboard();
     } else {
@@ -1194,6 +1201,11 @@ curveDirectionAngleSlider.addEventListener('input', function () {
 curveDirectionAngleText.addEventListener('input', function () {
     setCurveDirectionAngle(parseFloat(this.value));
 });
+curveDirectionPresetButtons.forEach(button => {
+    button.addEventListener('click', function () {
+        setCurveDirectionFromPreset(this.dataset.curveDirectionTarget);
+    });
+});
 
 // Reset
 document.getElementById('reset').addEventListener('click', () => location.reload());
@@ -1207,7 +1219,6 @@ updateChessboardOriginTabs('center');
 syncCurveAxisUnitVisibility('x');
 syncCurveAxisUnitVisibility('y');
 setCurveDirectionAngle(parseFloat(curveDirectionAngleSlider.value));
-updateFovDisplay();
 
 // initial draw
 renderChessboard();
