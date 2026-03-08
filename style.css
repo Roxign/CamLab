@@ -21,6 +21,13 @@ body {
     width: 640px;
 }
 
+.repo-link-row {
+    width: 640px;
+    font-family: sans-serif;
+    font-size: 13px;
+    text-align: center;
+}
+
 .view-tab-row {
     display: flex;
     flex-direction: row;

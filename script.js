@@ -719,12 +719,20 @@ function initCurveChart() {
         }],
         data: {
             datasets: [{
-                label: 'Distortion',
+                label: 'y',
                 data: [],
                 borderColor: '#0b63f6',
                 borderWidth: 2,
                 pointRadius: 0,
                 tension: 0
+            }, {
+                label: 'y',
+                data: [],
+                borderColor: '#0b63f6',
+                backgroundColor: '#0b63f6',
+                pointRadius: 4,
+                pointHoverRadius: 4,
+                showLine: false
             }]
         },
         options: {
@@ -794,7 +802,7 @@ function refreshCurveChart() {
 
     const [pixelSizeUm, iw, ih, fx, fy, cx, cy] = getIntrinsics();
     const [k1, k2, p1, p2, k3, k4, k5, k6, fisheye] = getDistortion();
-    const incomingStepDeg = 0.5;
+    const incomingStepDeg = 0.1;
     const incomingStepRad = incomingStepDeg * Math.PI / 180;
     const maxIncomingAngleRad = Math.PI - 1e-6;
     const reverseTailSteps = 20;
@@ -811,6 +819,8 @@ function refreshCurveChart() {
     let previousReflectedAngle = null;
     let reverseTailCountdown = -1;
     let stopU = null, stopV = null;
+    let maxReflectedAngle = -Infinity;
+    let maxReflectedPoint = null;
 
     for (let i = 0; i < maxSteps; i++) {
         const angle = Math.min(i * incomingStepRad, maxIncomingAngleRad);
@@ -847,6 +857,11 @@ function refreshCurveChart() {
         yMin = Math.min(yMin, yValue);
         yMax = Math.max(yMax, yValue);
 
+        if (reflectedAngle > maxReflectedAngle) {
+            maxReflectedAngle = reflectedAngle;
+            maxReflectedPoint = { x: xValue, y: yValue };
+        }
+
         if (reverseTailCountdown === 0) {
             break;
         }
@@ -872,6 +887,7 @@ function refreshCurveChart() {
     curveChart.options.scales.y.max = yMax + yPad;
     delete curveChart.options.scales.x.ticks.stepSize;
     delete curveChart.options.scales.y.ticks.stepSize;
+    curveChart.data.datasets[1].data = maxReflectedPoint ? [maxReflectedPoint] : [];
 
     curveChart.options.scales.x.title.text = getCurveAxisLabel('x');
     curveChart.options.scales.y.title.text = getCurveAxisLabel('y');
