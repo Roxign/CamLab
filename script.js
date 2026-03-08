@@ -817,10 +817,12 @@ function refreshCurveChart() {
     let xMin = Infinity, xMax = -Infinity;
     let yMin = Infinity, yMax = -Infinity;
     let previousReflectedAngle = null;
+    let previousPoint = null;
     let reverseTailCountdown = -1;
     let stopU = null, stopV = null;
     let maxReflectedAngle = -Infinity;
     let maxReflectedPoint = null;
+    let firstMaximumLocked = false;
 
     for (let i = 0; i < maxSteps; i++) {
         const angle = Math.min(i * incomingStepRad, maxIncomingAngleRad);
@@ -842,6 +844,11 @@ function refreshCurveChart() {
         const reflectedAngle = Math.atan(Math.hypot(xDist, yDist));
         if (previousReflectedAngle !== null && reverseTailCountdown < 0) {
             if (reflectedAngle < previousReflectedAngle - reverseTolerance) {
+                if (!firstMaximumLocked && previousPoint) {
+                    maxReflectedAngle = previousReflectedAngle;
+                    maxReflectedPoint = previousPoint;
+                    firstMaximumLocked = true;
+                }
                 reverseTailCountdown = reverseTailSteps;
             }
         }
@@ -857,10 +864,11 @@ function refreshCurveChart() {
         yMin = Math.min(yMin, yValue);
         yMax = Math.max(yMax, yValue);
 
-        if (reflectedAngle > maxReflectedAngle) {
+        if (!firstMaximumLocked && reflectedAngle > maxReflectedAngle) {
             maxReflectedAngle = reflectedAngle;
             maxReflectedPoint = { x: xValue, y: yValue };
         }
+        previousPoint = { x: xValue, y: yValue };
 
         if (reverseTailCountdown === 0) {
             break;
