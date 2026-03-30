@@ -33,6 +33,7 @@ const curveAxes = Object.fromEntries(curveAxisKeys.map(axisKey => {
     const typeOptions = Array.from(document.querySelectorAll(`input[data-curve-axis="${axisKey}"][data-curve-role="type"]`));
     const unitOptions = Array.from(document.querySelectorAll(`input[data-curve-axis="${axisKey}"][data-curve-role="unit"]`));
     const unitGroup = document.querySelector(`[data-curve-axis="${axisKey}"][data-curve-role="unit-group"]`);
+    // Only two types now: angle and height
     const labels = Object.fromEntries(typeOptions.map(option => [option.value, option.dataset.axisLabel || option.value]));
 
     return [axisKey, {
@@ -494,21 +495,23 @@ function syncCurveAxisUnitVisibility(axisKey) {
     });
 }
 
-function getCurveAxisLabel(axisKey) {
-    const axis = curveAxes[axisKey];
-    const { state } = axis;
-    if (state.type === 'angle' || state.type === 'height') {
-        return `${axis.labels[state.type] || state.type} (${state.unit})`;
-    }
-    return axis.labels.slope || 'slope';
-}
+const getCurveAxisLabel = axisKey => `${curveAxes[axisKey].labels[curveAxes[axisKey].state.type] || curveAxes[axisKey].state.type} (${curveAxes[axisKey].state.unit})`;
 
 function getCurveAxisValue(axisKey, slope, rayZ, focalLengthPx, pixelSizeUm) {
     const { state } = curveAxes[axisKey];
     if (state.type === 'angle') {
         const frontAngle = Math.atan(slope);
         const angleRad = axisKey === 'x' && rayZ < 0 ? (Math.PI - frontAngle) : frontAngle;
-        return state.unit === 'rad' ? angleRad : angleRad * 180 / Math.PI;
+        switch (state.unit) {
+            case 'rad':
+                return angleRad;
+            case 'deg':
+                return angleRad * 180 / Math.PI;
+            case 'slope':
+                return slope;
+            default:
+                return angleRad * 180 / Math.PI;
+        }
     }
     if (state.type === 'height') {
         const heightPixel = focalLengthPx * slope;
@@ -528,7 +531,8 @@ function getCurveAxisValue(axisKey, slope, rayZ, focalLengthPx, pixelSizeUm) {
                 return heightUm / 1e6;
         }
     }
-    return slope;
+    // Should never reach here
+    return NaN;
 }
 
 function bindCurveAxisControls(axisKey) {
@@ -651,34 +655,32 @@ function renderDirectionCanvas() {
     directionCtx.arc(centerX, centerY, 3, 0, 2 * Math.PI);
     directionCtx.fill();
 
+
     const [dirX, dirY] = getCurveDirectionUnitVector();
-    let boundaryDistance = Infinity;
-    if (Math.abs(dirX) > 1e-12) {
-        const tx = dirX > 0 ? (iw - cx) / dirX : (0 - cx) / dirX;
-        if (tx > 0) boundaryDistance = Math.min(boundaryDistance, tx);
-    }
-    if (Math.abs(dirY) > 1e-12) {
-        const ty = dirY > 0 ? (ih - cy) / dirY : (0 - cy) / dirY;
-        if (ty > 0) boundaryDistance = Math.min(boundaryDistance, ty);
-    }
-    boundaryDistance = isFinite(boundaryDistance) ? boundaryDistance : 0;
 
-    let stopDistance = Infinity;
-    if (isFinite(curveDirectionState.stopU) && isFinite(curveDirectionState.stopV)) {
-        const stopDx = curveDirectionState.stopU - cx;
-        const stopDy = curveDirectionState.stopV - cy;
-        const projectedDistance = stopDx * dirX + stopDy * dirY;
-        if (projectedDistance > 0) {
-            stopDistance = projectedDistance;
-        }
-    }
+    // Always use findFovLimit to determine the max arrow length in this direction
+    let arrowDistance = 0;
+    const fovLimitRad = findFovLimit(dirX, dirY);
+    // For a given direction, the distance in the image plane is tan(angle) (slope)
+    // Project the endpoint in normalized coordinates, then map to image plane
+    const rayZ = fovLimitRad > Math.PI * 0.5 ? -1 : 1;
+    const incomingSlope = Math.tan(rayZ > 0 ? fovLimitRad : (Math.PI - fovLimitRad));
+    const xu = dirX * incomingSlope;
+    const yu = dirY * incomingSlope;
+    // Apply distortion and intrinsics to get image coordinates
+    const [k1, k2, p1, p2, k3, k4, k5, k6, fisheye] = getDistortion();
+    const [ , , , fx, fy, cx_, cy_ ] = getIntrinsics();
+    const [xDist, yDist] = applyDistortion(xu, yu, rayZ, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
+    const u = fx * xDist + cx_;
+    const v = fy * yDist + cy_;
+    // Distance from (cx, cy) to (u, v) in image coordinates
+    arrowDistance = Math.hypot(u - cx_, v - cy_);
+    // Map to canvas scale
+    arrowDistance *= scaleX; // assume scaleX ~ scaleY
 
-    const baseDistance = Math.min(boundaryDistance, stopDistance);
-    const arrowDistance = isFinite(baseDistance) ? baseDistance : boundaryDistance;
-    const endU = cx + dirX * arrowDistance;
-    const endV = cy + dirY * arrowDistance;
-    const endX = endU * scaleX;
-    const endY = endV * scaleY;
+    // Compute endpoint
+    const endX = centerX + dirX * arrowDistance;
+    const endY = centerY + dirY * arrowDistance;
 
     directionCtx.strokeStyle = '#0b63f6';
     directionCtx.lineWidth = 2;
@@ -796,6 +798,67 @@ function initCurveChart() {
     });
 }
 
+// Find the maximum field of view angle in a given direction before the image leaves the sensor or the mapping becomes invalid.
+function findFovLimit(rayDirX, rayDirY, incomingStepDeg = 0.09) {
+    const [pixelSizeUm, iw, ih, fx, fy, cx, cy] = getIntrinsics();
+    const [k1, k2, p1, p2, k3, k4, k5, k6, fisheye] = getDistortion();
+    // Normalize direction
+    const norm = Math.hypot(rayDirX, rayDirY);
+    const dirX = norm === 0 ? 1 : rayDirX / norm;
+    const dirY = norm === 0 ? 0 : rayDirY / norm;
+    const incomingStepRad = incomingStepDeg * Math.PI / 180;
+    const maxIncomingAngleRad = Math.PI - 1e-6;
+    const maxSteps = Math.ceil(maxIncomingAngleRad / incomingStepRad) + 1;
+    let previousReflectedAngle = null;
+    let limitAngle = 0;
+    for (let i = 0; i < maxSteps; i++) {
+        const angle = Math.min(i * incomingStepRad, maxIncomingAngleRad);
+        const rayZ = angle > Math.PI * 0.5 ? -1 : 1;
+        const incomingSlope = Math.tan(rayZ > 0 ? angle : (Math.PI - angle));
+        const xu = dirX * incomingSlope;
+        const yu = dirY * incomingSlope;
+        const [xDist, yDist] = applyDistortion(xu, yu, rayZ, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
+        const u = fx * xDist + cx;
+        const v = fy * yDist + cy;
+        const inResolution = u >= 0 && u <= iw && v >= 0 && v <= ih;
+        if (!inResolution) {
+            break;
+        }
+        const reflectedAngle = Math.atan(Math.hypot(xDist, yDist));
+        if (previousReflectedAngle !== null && reflectedAngle < previousReflectedAngle) {
+            // Curve reverses, stop here
+            limitAngle = angle;
+            break;
+        }
+        previousReflectedAngle = reflectedAngle;
+        limitAngle = angle;
+        if (angle >= maxIncomingAngleRad) {
+            break;
+        }
+    }
+    return limitAngle;
+}
+
+function updateFovResults() {
+    const [pixelSizeUm, iw, ih, fx, fy, cx, cy] = getIntrinsics();
+    // Horizontal FOV: left (-X) and right (+X)
+    const h1 = findFovLimit(-1, 0);
+    const h2 = findFovLimit(1, 0);
+    const hFOV = (h1 + h2) * 180 / Math.PI;
+    // Vertical FOV: up (-Y) and down (+Y)
+    const v1 = findFovLimit(0, -1);
+    const v2 = findFovLimit(0, 1);
+    const vFOV = (v1 + v2) * 180 / Math.PI;
+    // Diagonal FOV: four corners
+    const d1 = findFovLimit(iw, ih) + findFovLimit(-iw, -ih);
+    const d2 = findFovLimit(-iw, ih) + findFovLimit(iw, -ih);
+    const dFOV = Math.min(d1, d2) * 180 / Math.PI;
+    // Update DOM
+    document.getElementById('hFOVResult').textContent = hFOV.toFixed(1);
+    document.getElementById('vFOVResult').textContent = vFOV.toFixed(1);
+    document.getElementById('dFOVResult').textContent = dFOV.toFixed(1);
+}
+
 function refreshCurveChart() {
     const curveChart = curveCanvas._curveChart;
     if (!curveChart) return;
@@ -804,87 +867,48 @@ function refreshCurveChart() {
     const [k1, k2, p1, p2, k3, k4, k5, k6, fisheye] = getDistortion();
     const incomingStepDeg = 0.1;
     const incomingStepRad = incomingStepDeg * Math.PI / 180;
-    const maxIncomingAngleRad = Math.PI - 1e-6;
-    const reverseTailSteps = 20;
-    const reverseTolerance = 1e-6;
-    const maxSteps = Math.ceil(maxIncomingAngleRad / incomingStepRad) + reverseTailSteps + 1;
     const [rayDirX, rayDirY] = getCurveDirectionUnitVector();
     const ensureRange = (min, max) => (
         isFinite(min) && isFinite(max) && min !== max ? [min, max] : [0, 1]
     );
 
+    // Use findFovLimit to get the FOV limit angle in this direction, using the same step as the curve
+    const fovLimitRad = findFovLimit(rayDirX, rayDirY, incomingStepDeg);
+    const extraRad = 10 * Math.PI / 180; // 10 degree extra
+    const maxAngleRad = Math.min(fovLimitRad + extraRad, Math.PI - 1e-6);
+
     const points = [];
     let xMin = Infinity, xMax = -Infinity;
     let yMin = Infinity, yMax = -Infinity;
-    let previousReflectedAngle = null;
-    let previousPoint = null;
-    let reverseTailCountdown = -1;
     let stopU = null, stopV = null;
-    let maxReflectedAngle = -Infinity;
-    let maxReflectedPoint = null;
-    let firstMaximumLocked = false;
+    let fovPoint = null;
 
-    for (let i = 0; i < maxSteps; i++) {
-        const angle = Math.min(i * incomingStepRad, maxIncomingAngleRad);
+    for (let angle = 0; angle <= maxAngleRad + 1e-8; angle += incomingStepRad) {
         const rayZ = angle > Math.PI * 0.5 ? -1 : 1;
         const incomingSlope = Math.tan(rayZ > 0 ? angle : (Math.PI - angle));
         const xu = rayDirX * incomingSlope;
         const yu = rayDirY * incomingSlope;
         const [xDist, yDist] = applyDistortion(xu, yu, rayZ, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
-
         const u = fx * xDist + cx;
         const v = fy * yDist + cy;
         const inResolution = u >= 0 && u <= iw && v >= 0 && v <= ih;
-        if (!inResolution) {
-            break;
-        }
+        if (!inResolution) break;
         stopU = u;
         stopV = v;
-
-        const reflectedAngle = Math.atan(Math.hypot(xDist, yDist));
-        if (previousReflectedAngle !== null && reverseTailCountdown < 0) {
-            if (reflectedAngle < previousReflectedAngle - reverseTolerance) {
-                if (!firstMaximumLocked && previousPoint) {
-                    maxReflectedAngle = previousReflectedAngle;
-                    maxReflectedPoint = previousPoint;
-                    firstMaximumLocked = true;
-                }
-                reverseTailCountdown = reverseTailSteps;
-            }
-        }
-        previousReflectedAngle = reflectedAngle;
-
         const xValue = getCurveAxisValue('x', incomingSlope, rayZ, fx, pixelSizeUm);
         const yValue = getCurveAxisValue('y', Math.hypot(xDist, yDist), rayZ, fy, pixelSizeUm);
         if (!isFinite(xValue) || !isFinite(yValue)) continue;
-
         points.push({ x: xValue, y: yValue });
         xMin = Math.min(xMin, xValue);
         xMax = Math.max(xMax, xValue);
         yMin = Math.min(yMin, yValue);
         yMax = Math.max(yMax, yValue);
-
-        if (!firstMaximumLocked && reflectedAngle > maxReflectedAngle) {
-            maxReflectedAngle = reflectedAngle;
-            maxReflectedPoint = { x: xValue, y: yValue };
-        }
-        previousPoint = { x: xValue, y: yValue };
-
-        if (reverseTailCountdown === 0) {
-            break;
-        }
-        if (reverseTailCountdown > 0) {
-            reverseTailCountdown--;
-        }
-
-        if (angle >= maxIncomingAngleRad) {
-            break;
-        }
+        // Mark the FOV point (at the limit, before extra 10 deg)
+        if (!fovPoint && angle + 1e-8 >= fovLimitRad) fovPoint = { x: xValue, y: yValue };
     }
 
     [xMin, xMax] = ensureRange(xMin, xMax);
     [yMin, yMax] = ensureRange(yMin, yMax);
-
     const xPad = (xMax - xMin) * 0.05 || 0.05;
     const yPad = (yMax - yMin) * 0.1 || 0.1;
 
@@ -895,7 +919,7 @@ function refreshCurveChart() {
     curveChart.options.scales.y.max = yMax + yPad;
     delete curveChart.options.scales.x.ticks.stepSize;
     delete curveChart.options.scales.y.ticks.stepSize;
-    curveChart.data.datasets[1].data = maxReflectedPoint ? [maxReflectedPoint] : [];
+    curveChart.data.datasets[1].data = fovPoint ? [fovPoint] : [];
 
     curveChart.options.scales.x.title.text = getCurveAxisLabel('x');
     curveChart.options.scales.y.title.text = getCurveAxisLabel('y');
@@ -1059,6 +1083,7 @@ function updateParameter(id, value) {
     } else {
         refreshCurveChart();
     }
+    updateFovResults();
 }
 
 // update cx and canvas size when iw changes, keeping cx in the center by default. This function is called whenever the image width (iw) parameter is changed, and it updates the principal point cx to be at the center of the new image width by default. It also updates the maximum value of the cx slider to match the new image width, and resizes the canvas accordingly to maintain the correct aspect ratio based on the new image dimensions.
@@ -1119,6 +1144,7 @@ document.getElementById('fisheye').addEventListener('input', function () {
     } else {
         refreshCurveChart();
     }
+    updateFovResults();
 });
 
 // Extrinsic
@@ -1208,12 +1234,14 @@ viewChessboardBtn.addEventListener('click', function () {
     toggleChessUI(true);
     toggleCurveUI(false);
     renderChessboard();
+    updateFovResults();
 });
 
 viewCurveBtn.addEventListener('click', function () {
     toggleChessUI(false);
     toggleCurveUI(true);
     refreshCurveChart();
+    updateFovResults();
 });
 
 bindCurveAxisControls('x');
@@ -1246,3 +1274,4 @@ setCurveDirectionAngle(parseFloat(curveDirectionAngleSlider.value));
 
 // initial draw
 renderChessboard();
+updateFovResults();

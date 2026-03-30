@@ -1,3 +1,9 @@
+.axis-fov {
+    font-weight: bold;
+    min-width: 48px;
+    font-family: inherit;
+    font-size: inherit;
+}
 body {
     display: flex;
     justify-content: center;

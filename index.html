@@ -15,8 +15,8 @@
             <a href="https://github.com/Roxign/CamLab" target="_blank" rel="noopener noreferrer">CamLab on GitHub</a>
         </div>
         <div class="view-tab-row" role="tablist" aria-label="Visualization view tabs">
-            <button id="viewChessboard" type="button" role="tab" aria-selected="true" aria-controls="canvas">Chessboard</button>
-            <button id="viewCurve" type="button" role="tab" aria-selected="false" aria-controls="curveCanvas">Distortion Curve</button>
+            <button id="viewChessboard" type="button" role="tab" aria-selected="true" aria-controls="canvas" title="Show the chessboard view for calibration.">Chessboard</button>
+            <button id="viewCurve" type="button" role="tab" aria-selected="false" aria-controls="curveCanvas" title="Show the distortion curve view for lens analysis.">Distortion Curve</button>
         </div>
         <div class="canvas-stack">
             <canvas id="canvas" width="640" height="360"></canvas>
@@ -25,35 +25,35 @@
         <div class="curve-axis-options" id="curveAxisOptions">
             <div class="axis-group">
                 <span>X type:</span>
-                <label><input type="radio" id="curveXTypeAngle" name="curveXType" value="angle" checked data-curve-axis="x" data-curve-role="type" data-axis-label="incoming ray angle"> incoming ray angle</label>
-                <label><input type="radio" id="curveXTypeSlope" name="curveXType" value="slope" data-curve-axis="x" data-curve-role="type" data-axis-label="incoming ray slope (tanθ)"> incoming ray slope</label>
-                <label><input type="radio" id="curveXTypeHeight" name="curveXType" value="height" data-curve-axis="x" data-curve-role="type" data-axis-label="incoming image height"> reference height</label>
+                <label><input type="radio" id="curveXTypeAngle" name="curveXType" value="angle" checked data-curve-axis="x" data-curve-role="type" data-axis-label="incoming ray" title="X axis: Use incoming ray angle as variable."> incoming ray</label>
+                <label><input type="radio" id="curveXTypeHeight" name="curveXType" value="height" data-curve-axis="x" data-curve-role="type" data-axis-label="reference image height" title="X axis: Use reference image height as variable."> reference height</label>
             </div>
             <div class="axis-group" id="curveXUnitGroup" data-curve-axis="x" data-curve-role="unit-group">
                 <span>X unit:</span>
-                <label><input type="radio" id="curveXUnitDeg" name="curveXUnit" value="deg" checked data-curve-axis="x" data-curve-role="unit" data-unit-kind="angle"> deg</label>
-                <label><input type="radio" id="curveXUnitRad" name="curveXUnit" value="rad" data-curve-axis="x" data-curve-role="unit" data-unit-kind="angle"> rad</label>
-                <label><input type="radio" id="curveXUnitPixel" name="curveXUnit" value="pixel" data-curve-axis="x" data-curve-role="unit" data-unit-kind="height"> pixel</label>
-                <label><input type="radio" id="curveXUnitUm" name="curveXUnit" value="um" data-curve-axis="x" data-curve-role="unit" data-unit-kind="height"> um</label>
-                <label><input type="radio" id="curveXUnitMm" name="curveXUnit" value="mm" data-curve-axis="x" data-curve-role="unit" data-unit-kind="height"> mm</label>
-                <label><input type="radio" id="curveXUnitCm" name="curveXUnit" value="cm" data-curve-axis="x" data-curve-role="unit" data-unit-kind="height"> cm</label>
-                <label><input type="radio" id="curveXUnitM" name="curveXUnit" value="m" data-curve-axis="x" data-curve-role="unit" data-unit-kind="height"> m</label>
+                <label><input type="radio" id="curveXUnitDeg" name="curveXUnit" value="deg" checked data-curve-axis="x" data-curve-role="unit" data-unit-kind="angle" title="Degrees (°)"> deg</label>
+                <label><input type="radio" id="curveXUnitRad" name="curveXUnit" value="rad" data-curve-axis="x" data-curve-role="unit" data-unit-kind="angle" title="Radians (rad)"> rad</label>
+                <label><input type="radio" id="curveXUnitSlope" name="curveXUnit" value="slope" data-curve-axis="x" data-curve-role="unit" data-unit-kind="angle" title="Slope (tanθ)"> slope (tanθ)</label>
+                <label><input type="radio" id="curveXUnitPixel" name="curveXUnit" value="pixel" data-curve-axis="x" data-curve-role="unit" data-unit-kind="height" title="Pixels (image units)"> pixel</label>
+                <label><input type="radio" id="curveXUnitUm" name="curveXUnit" value="um" data-curve-axis="x" data-curve-role="unit" data-unit-kind="height" title="Micrometers (μm)"> um</label>
+                <label><input type="radio" id="curveXUnitMm" name="curveXUnit" value="mm" data-curve-axis="x" data-curve-role="unit" data-unit-kind="height" title="Millimeters (mm)"> mm</label>
+                <label><input type="radio" id="curveXUnitCm" name="curveXUnit" value="cm" data-curve-axis="x" data-curve-role="unit" data-unit-kind="height" title="Centimeters (cm)"> cm</label>
+                <label><input type="radio" id="curveXUnitM" name="curveXUnit" value="m" data-curve-axis="x" data-curve-role="unit" data-unit-kind="height" title="Meters (m)"> m</label>
             </div>
             <div class="axis-group">
                 <span>Y type:</span>
-                <label><input type="radio" id="curveYTypeAngle" name="curveYType" value="angle" checked data-curve-axis="y" data-curve-role="type" data-axis-label="reflected ray angle"> reflected ray angle</label>
-                <label><input type="radio" id="curveYTypeSlope" name="curveYType" value="slope" data-curve-axis="y" data-curve-role="type" data-axis-label="reflected ray slope (tanθ)"> reflected ray slope</label>
-                <label><input type="radio" id="curveYTypeHeight" name="curveYType" value="height" data-curve-axis="y" data-curve-role="type" data-axis-label="image height"> measured height</label>
+                <label><input type="radio" id="curveYTypeAngle" name="curveYType" value="angle" checked data-curve-axis="y" data-curve-role="type" data-axis-label="reflected ray" title="Y axis: Use reflected ray angle as variable."> reflected ray</label>
+                <label><input type="radio" id="curveYTypeHeight" name="curveYType" value="height" data-curve-axis="y" data-curve-role="type" data-axis-label="measured image height" title="Y axis: Use measured image height as variable."> measured height</label>
             </div>
             <div class="axis-group" id="curveYUnitGroup" data-curve-axis="y" data-curve-role="unit-group">
                 <span>Y unit:</span>
-                <label><input type="radio" id="curveYUnitDeg" name="curveYUnit" value="deg" checked data-curve-axis="y" data-curve-role="unit" data-unit-kind="angle"> deg</label>
-                <label><input type="radio" id="curveYUnitRad" name="curveYUnit" value="rad" data-curve-axis="y" data-curve-role="unit" data-unit-kind="angle"> rad</label>
-                <label><input type="radio" id="curveYUnitPixel" name="curveYUnit" value="pixel" data-curve-axis="y" data-curve-role="unit" data-unit-kind="height"> pixel</label>
-                <label><input type="radio" id="curveYUnitUm" name="curveYUnit" value="um" data-curve-axis="y" data-curve-role="unit" data-unit-kind="height"> um</label>
-                <label><input type="radio" id="curveYUnitMm" name="curveYUnit" value="mm" data-curve-axis="y" data-curve-role="unit" data-unit-kind="height"> mm</label>
-                <label><input type="radio" id="curveYUnitCm" name="curveYUnit" value="cm" data-curve-axis="y" data-curve-role="unit" data-unit-kind="height"> cm</label>
-                <label><input type="radio" id="curveYUnitM" name="curveYUnit" value="m" data-curve-axis="y" data-curve-role="unit" data-unit-kind="height"> m</label>
+                <label><input type="radio" id="curveYUnitDeg" name="curveYUnit" value="deg" checked data-curve-axis="y" data-curve-role="unit" data-unit-kind="angle" title="Degrees (°)"> deg</label>
+                <label><input type="radio" id="curveYUnitRad" name="curveYUnit" value="rad" data-curve-axis="y" data-curve-role="unit" data-unit-kind="angle" title="Radians (rad)"> rad</label>
+                <label><input type="radio" id="curveYUnitSlope" name="curveYUnit" value="slope" data-curve-axis="y" data-curve-role="unit" data-unit-kind="angle" title="Slope (tanθ)"> slope (tanθ)</label>
+                <label><input type="radio" id="curveYUnitPixel" name="curveYUnit" value="pixel" data-curve-axis="y" data-curve-role="unit" data-unit-kind="height" title="Pixels (image units)"> pixel</label>
+                <label><input type="radio" id="curveYUnitUm" name="curveYUnit" value="um" data-curve-axis="y" data-curve-role="unit" data-unit-kind="height" title="Micrometers (μm)"> um</label>
+                <label><input type="radio" id="curveYUnitMm" name="curveYUnit" value="mm" data-curve-axis="y" data-curve-role="unit" data-unit-kind="height" title="Millimeters (mm)"> mm</label>
+                <label><input type="radio" id="curveYUnitCm" name="curveYUnit" value="cm" data-curve-axis="y" data-curve-role="unit" data-unit-kind="height" title="Centimeters (cm)"> cm</label>
+                <label><input type="radio" id="curveYUnitM" name="curveYUnit" value="m" data-curve-axis="y" data-curve-role="unit" data-unit-kind="height" title="Meters (m)"> m</label>
             </div>
             <div class="curve-direction-row" id="curveDirectionControls">
                 <div class="curve-direction-inputs">
@@ -64,15 +64,15 @@
                         </div>
                         <input type="range" id="curveDirectionAngle" min="-180" max="180" value="45" step="1">
                         <div class="curve-direction-pad" aria-label="Direction presets">
-                            <button type="button" data-curve-direction-target="TL" aria-label="Top-left">TL</button>
-                            <button type="button" data-curve-direction-target="T" aria-label="Top">T</button>
-                            <button type="button" data-curve-direction-target="TR" aria-label="Top-right">TR</button>
-                            <button type="button" data-curve-direction-target="L" aria-label="Left">L</button>
+                            <button type="button" data-curve-direction-target="TL" aria-label="Top-left" title="Set direction to Top-Left">TL</button>
+                            <button type="button" data-curve-direction-target="T" aria-label="Top" title="Set direction to Top">T</button>
+                            <button type="button" data-curve-direction-target="TR" aria-label="Top-right" title="Set direction to Top-Right">TR</button>
+                            <button type="button" data-curve-direction-target="L" aria-label="Left" title="Set direction to Left">L</button>
                             <span class="curve-direction-pad-hole" aria-hidden="true"></span>
-                            <button type="button" data-curve-direction-target="R" aria-label="Right">R</button>
-                            <button type="button" data-curve-direction-target="BL" aria-label="Bottom-left">BL</button>
-                            <button type="button" data-curve-direction-target="B" aria-label="Bottom">B</button>
-                            <button type="button" data-curve-direction-target="BR" aria-label="Bottom-right">BR</button>
+                            <button type="button" data-curve-direction-target="R" aria-label="Right" title="Set direction to Right">R</button>
+                            <button type="button" data-curve-direction-target="BL" aria-label="Bottom-left" title="Set direction to Bottom-Left">BL</button>
+                            <button type="button" data-curve-direction-target="B" aria-label="Bottom" title="Set direction to Bottom">B</button>
+                            <button type="button" data-curve-direction-target="BR" aria-label="Bottom-right" title="Set direction to Bottom-Right">BR</button>
                         </div>
                     </div>
                 </div>
@@ -90,38 +90,38 @@
                 <label style="font-family: 'sans-serif'; font-weight: bold; font-size: 20px;">Intrinsic:</label>
             </div>
             <div class="pixel-size-row">
-                <label for="psText">um/px</label>
-                <input type="text" id="psText" value="1.0">
+                <label for="psText" title="Pixel size in micrometers per pixel (μm/px)">um/px</label>
+                <input type="text" id="psText" value="1.0" title="Set the pixel size (μm/px)">
             </div>
             <div>
-                <label for="iw">iw</label>
-                <input type="text" id="iwText" value="1920">
-                <input type="range" id="iw" name="iw" min="100" max="10000" value="1920">
+                <label for="iw" title="Image width in pixels">iw</label>
+                <input type="text" id="iwText" value="1920" title="Set image width (pixels)">
+                <input type="range" id="iw" name="iw" min="100" max="10000" value="1920" title="Adjust image width (pixels)">
             </div>
             <div>
-                <label for="ih">ih</label>
-                <input type="text" id="ihText" value="1080">
-                <input type="range" id="ih" name="ih" min="100" max="10000" value="1080">
+                <label for="ih" title="Image height in pixels">ih</label>
+                <input type="text" id="ihText" value="1080" title="Set image height (pixels)">
+                <input type="range" id="ih" name="ih" min="100" max="10000" value="1080" title="Adjust image height (pixels)">
             </div>
             <div>
-                <label for="fx">f<sub>x</sub></label>
-                <input type="text" id="fxText" value="1000">
-                <input type="range" id="fx" name="fx" min="100" max="10000" value="1000">
+                <label for="fx" title="Focal length in x (pixels)">f<sub>x</sub></label>
+                <input type="text" id="fxText" value="1000" title="Set focal length in x (pixels)">
+                <input type="range" id="fx" name="fx" min="100" max="10000" value="1000" title="Adjust focal length in x (pixels)">
             </div>
             <div>
-                <label for="fy">f<sub>y</sub></label>
-                <input type="text" id="fyText" value="1000">
-                <input type="range" id="fy" name="fy" min="100" max="10000" value="1000">
+                <label for="fy" title="Focal length in y (pixels)">f<sub>y</sub></label>
+                <input type="text" id="fyText" value="1000" title="Set focal length in y (pixels)">
+                <input type="range" id="fy" name="fy" min="100" max="10000" value="1000" title="Adjust focal length in y (pixels)">
             </div>
             <div>
-                <label for="cx">c<sub>x</sub></label>
-                <input type="text" id="cxText" value="960">
-                <input type="range" id="cx" name="cx" min="0" max="1920" value="960">
+                <label for="cx" title="Principal point x-coordinate (pixels)">c<sub>x</sub></label>
+                <input type="text" id="cxText" value="960" title="Set principal point x (pixels)">
+                <input type="range" id="cx" name="cx" min="0" max="1920" value="960" title="Adjust principal point x (pixels)">
             </div>
             <div>
-                <label for="cy">c<sub>y</sub></label>
-                <input type="text" id="cyText" value="540">
-                <input type="range" id="cy" name="cy" min="0" max="1080" value="540">
+                <label for="cy" title="Principal point y-coordinate (pixels)">c<sub>y</sub></label>
+                <input type="text" id="cyText" value="540" title="Set principal point y (pixels)">
+                <input type="range" id="cy" name="cy" min="0" max="1080" value="540" title="Adjust principal point y (pixels)">
             </div>
 
             <!-- Distortion -->
@@ -129,48 +129,53 @@
                 <label style="font-family: 'sans-serif'; font-weight: bold; font-size: 20px;">Distortion:</label>
             </div>
             <div>
-                <label for="k1">k<sub>1</sub></label>
-                <input type="text" id="k1Text" value="0">
-                <input type="range" id="k1" name="k1" min="-1" max="1" value="0" step="0.01">
+                <label for="k1" title="Radial distortion coefficient k₁">k<sub>1</sub></label>
+                <input type="text" id="k1Text" value="0" title="Set k₁ (radial distortion)">
+                <input type="range" id="k1" name="k1" min="-1" max="1" value="0" step="0.01" title="Adjust k₁ (radial distortion)">
             </div>
             <div>
-                <label for="k2">k<sub>2</sub></label>
-                <input type="text" id="k2Text" value="0">
-                <input type="range" id="k2" name="k2" min="-1" max="1" value="0" step="0.01">
+                <label for="k2" title="Radial distortion coefficient k₂">k<sub>2</sub></label>
+                <input type="text" id="k2Text" value="0" title="Set k₂ (radial distortion)">
+                <input type="range" id="k2" name="k2" min="-1" max="1" value="0" step="0.01" title="Adjust k₂ (radial distortion)">
             </div>
             <div>
-                <label for="p1">p<sub>1</sub></label>
-                <input type="text" id="p1Text" value="0">
-                <input type="range" id="p1" name="p1" min="-1" max="1" value="0" step="0.01">
+                <label for="p1" title="Tangential distortion coefficient p₁">p<sub>1</sub></label>
+                <input type="text" id="p1Text" value="0" title="Set p₁ (tangential distortion)">
+                <input type="range" id="p1" name="p1" min="-1" max="1" value="0" step="0.01" title="Adjust p₁ (tangential distortion)">
             </div>
             <div>
-                <label for="p2">p<sub>2</sub></label>
-                <input type="text" id="p2Text" value="0">
-                <input type="range" id="p2" name="p2" min="-1" max="1" value="0" step="0.01">
+                <label for="p2" title="Tangential distortion coefficient p₂">p<sub>2</sub></label>
+                <input type="text" id="p2Text" value="0" title="Set p₂ (tangential distortion)">
+                <input type="range" id="p2" name="p2" min="-1" max="1" value="0" step="0.01" title="Adjust p₂ (tangential distortion)">
             </div>
             <div>
-                <label for="k3">k<sub>3</sub></label>
-                <input type="text" id="k3Text" value="0">
-                <input type="range" id="k3" name="k3" min="-1" max="1" value="0" step="0.01">
+                <label for="k3" title="Radial distortion coefficient k₃">k<sub>3</sub></label>
+                <input type="text" id="k3Text" value="0" title="Set k₃ (radial distortion)">
+                <input type="range" id="k3" name="k3" min="-1" max="1" value="0" step="0.01" title="Adjust k₃ (radial distortion)">
             </div>
             <div>
-                <label for="k4">k<sub>4</sub></label>
-                <input type="text" id="k4Text" value="0">
-                <input type="range" id="k4" name="k4" min="-1" max="1" value="0" step="0.01">
+                <label for="k4" title="Radial distortion coefficient k₄">k<sub>4</sub></label>
+                <input type="text" id="k4Text" value="0" title="Set k₄ (radial distortion)">
+                <input type="range" id="k4" name="k4" min="-1" max="1" value="0" step="0.01" title="Adjust k₄ (radial distortion)">
             </div>
             <div>
-                <label for="k5">k<sub>5</sub></label>
-                <input type="text" id="k5Text" value="0">
-                <input type="range" id="k5" name="k5" min="-1" max="1" value="0" step="0.01">
+                <label for="k5" title="Radial distortion coefficient k₅">k<sub>5</sub></label>
+                <input type="text" id="k5Text" value="0" title="Set k₅ (radial distortion)">
+                <input type="range" id="k5" name="k5" min="-1" max="1" value="0" step="0.01" title="Adjust k₅ (radial distortion)">
             </div>
             <div>
-                <label for="k6">k<sub>6</sub></label>
-                <input type="text" id="k6Text" value="0">
-                <input type="range" id="k6" name="k6" min="-1" max="1" value="0" step="0.01">
+                <label for="k6" title="Radial distortion coefficient k₆">k<sub>6</sub></label>
+                <input type="text" id="k6Text" value="0" title="Set k₆ (radial distortion)">
+                <input type="range" id="k6" name="k6" min="-1" max="1" value="0" step="0.01" title="Adjust k₆ (radial distortion)">
             </div>
             <div>
-                <label for="fisheye">KB</label>
-                <input type="checkbox" id="fisheye" name="fisheye">
+                <label for="fisheye" title="Enable Kannala-Brandt (KB) fisheye distortion model">KB</label>
+                <input type="checkbox" id="fisheye" name="fisheye" title="Toggle KB fisheye distortion model">
+                <span id="fovResultsRow" style="display: flex; gap: 0.4em;">
+                    <span class="axis-fov">hFOV: <span id="hFOVResult">-</span>°</span>
+                    <span class="axis-fov">vFOV: <span id="vFOVResult">-</span>°</span>
+                    <span class="axis-fov">dFOV: <span id="dFOVResult">-</span>°</span>
+                </span>
             </div>
         </div>
         <div class="column">
@@ -179,79 +184,79 @@
             <div class="extrinsic-header-row">
                 <label style="font-family: 'sans-serif'; font-weight: bold; font-size: 20px;">Extrinsic:</label>
                 <div class="extrinsic-mode-row" role="tablist" aria-label="Extrinsic transform mode tabs">
-                    <button id="world2cam" type="button" role="tab" aria-selected="true" class="active">world2cam</button>
-                    <button id="cam2world" type="button" role="tab" aria-selected="false">cam2world</button>
+                    <button id="world2cam" type="button" role="tab" aria-selected="true" class="active" title="Transform world coordinates to camera coordinates">world2cam</button>
+                    <button id="cam2world" type="button" role="tab" aria-selected="false" title="Transform camera coordinates to world coordinates">cam2world</button>
                 </div>
             </div>
             <div>
-                <label for="rx">r<sub>x</sub></label>
-                <input type="text" id="rxText" value="0">
-                <input type="range" id="rx" name="rx" min="-180" max="180" value="0">
+                <label for="rx" title="Rotation around x-axis (degrees)">r<sub>x</sub></label>
+                <input type="text" id="rxText" value="0" title="Set rotation x (degrees)">
+                <input type="range" id="rx" name="rx" min="-180" max="180" value="0" title="Adjust rotation x (degrees)">
             </div>
             <div>
-                <label for="ry">r<sub>y</sub></label>
-                <input type="text" id="ryText" value="0">
-                <input type="range" id="ry" name="ry" min="-180" max="180" value="0">
+                <label for="ry" title="Rotation around y-axis (degrees)">r<sub>y</sub></label>
+                <input type="text" id="ryText" value="0" title="Set rotation y (degrees)">
+                <input type="range" id="ry" name="ry" min="-180" max="180" value="0" title="Adjust rotation y (degrees)">
             </div>
             <div>
-                <label for="rz">r<sub>z</sub></label>
-                <input type="text" id="rzText" value="0">
-                <input type="range" id="rz" name="rz" min="-180" max="180" value="0">
+                <label for="rz" title="Rotation around z-axis (degrees)">r<sub>z</sub></label>
+                <input type="text" id="rzText" value="0" title="Set rotation z (degrees)">
+                <input type="range" id="rz" name="rz" min="-180" max="180" value="0" title="Adjust rotation z (degrees)">
             </div>
             <div>
-                <label for="tx">t<sub>x</sub></label>
-                <input type="text" id="txText" value="0">
-                <input type="range" id="tx" name="tx" min="-1000" max="1000" value="0">
+                <label for="tx" title="Translation along x-axis (mm)">t<sub>x</sub></label>
+                <input type="text" id="txText" value="0" title="Set translation x (mm)">
+                <input type="range" id="tx" name="tx" min="-1000" max="1000" value="0" title="Adjust translation x (mm)">
             </div>
             <div>
-                <label for="ty">t<sub>y</sub></label>
-                <input type="text" id="tyText" value="0">
-                <input type="range" id="ty" name="ty" min="-1000" max="1000" value="0">
+                <label for="ty" title="Translation along y-axis (mm)">t<sub>y</sub></label>
+                <input type="text" id="tyText" value="0" title="Set translation y (mm)">
+                <input type="range" id="ty" name="ty" min="-1000" max="1000" value="0" title="Adjust translation y (mm)">
             </div>
             <div>
-                <label for="tz">t<sub>z</sub></label>
-                <input type="text" id="tzText" value="1000">
-                <input type="range" id="tz" name="tz" min="-10000" max="10000" value="1000">
+                <label for="tz" title="Translation along z-axis (mm)">t<sub>z</sub></label>
+                <input type="text" id="tzText" value="1000" title="Set translation z (mm)">
+                <input type="range" id="tz" name="tz" min="-10000" max="10000" value="1000" title="Adjust translation z (mm)">
             </div>
             <!-- Chessboard -->
             <div class="chessboard-header-row">
                 <label style="font-family: 'sans-serif'; font-weight: bold; font-size: 20px;">Chessboard:</label>
                 <div class="center-mode-row" role="tablist" aria-label="Chessboard coordinate origin tabs">
-                    <button id="centerAtTL" type="button" role="tab" aria-selected="false" title="Chessboard coordinate system starts at top-left">TL-CS</button>
-                    <button id="centerAtCenter" type="button" role="tab" aria-selected="true" class="active" title="Chessboard coordinate system is centered">CT-CS</button>
+                    <button id="centerAtTL" type="button" role="tab" aria-selected="false" title="TL-CS: Set the chessboard coordinate system origin to the Top-Left corner. Use this if you want (0,0) at the top-left square, matching most image coordinate systems.">TL-CS</button>
+                    <button id="centerAtCenter" type="button" role="tab" aria-selected="true" class="active" title="CT-CS: Set the chessboard coordinate system origin to the Center of the board. Use this if you want (0,0) at the center square, which is common in some calibration workflows.">CT-CS</button>
                 </div>
             </div>
             <div>
                 <!-- number of inner corners along width (bc) and height (br) -->
-                <label for="bc">bc</label>
-                <input type="text" id="bcText" value="12">
-                <input type="range" id="bc" name="bc" min="3" max="100" value="12">
+                <label for="bc" title="Number of inner corners along chessboard width">bc</label>
+                <input type="text" id="bcText" value="12" title="Set number of inner corners (width)">
+                <input type="range" id="bc" name="bc" min="3" max="100" value="12" title="Adjust number of inner corners (width)">
             </div>
             <div>
-                <label for="br">br</label>
-                <input type="text" id="brText" value="9">
-                <input type="range" id="br" name="br" min="3" max="100" value="9">
+                <label for="br" title="Number of inner corners along chessboard height">br</label>
+                <input type="text" id="brText" value="9" title="Set number of inner corners (height)">
+                <input type="range" id="br" name="br" min="3" max="100" value="9" title="Adjust number of inner corners (height)">
             </div>
             <div>
-                <label for="bw">bw</label>
-                <input type="text" id="bwText" value="100">
-                <input type="range" id="bw" name="bw" min="1" max="1000" value="100">
+                <label for="bw" title="Chessboard square width (mm)">bw</label>
+                <input type="text" id="bwText" value="100" title="Set chessboard square width (mm)">
+                <input type="range" id="bw" name="bw" min="1" max="1000" value="100" title="Adjust chessboard square width (mm)">
             </div>
             <div>
-                <label for="bh">bh</label>
-                <input type="text" id="bhText" value="100">
-                <input type="range" id="bh" name="bh" min="1" max="1000" value="100">
+                <label for="bh" title="Chessboard square height (mm)">bh</label>
+                <input type="text" id="bhText" value="100" title="Set chessboard square height (mm)">
+                <input type="range" id="bh" name="bh" min="1" max="1000" value="100" title="Adjust chessboard square height (mm)">
             </div>
             <div>
-                <label for="showSquares">■□</label>
-                <input type="checkbox" id="showSquares" name="showSquares">
+                <label for="showSquares" title="Show or hide chessboard squares">■□</label>
+                <input type="checkbox" id="showSquares" name="showSquares" title="Toggle chessboard squares">
             </div>
             <div>
                 <!-- when enabled draw filled circles at each corner after the board is rendered -->
-                <label for="showCircles">●●</label>
-                <input type="checkbox" id="showCircles" name="showCircles" checked="true">
+                <label for="showCircles" title="Show or hide chessboard circles">●●</label>
+                <input type="checkbox" id="showCircles" name="showCircles" checked="true" title="Toggle chessboard circles">
             </div>
-            <button id="reset">Reset</button>
+            <button id="reset" title="Reset all parameters to default values">Reset</button>
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
