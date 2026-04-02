@@ -1,24 +1,93 @@
+.intrinsic-header-row,
+.extrinsic-header-row,
+.chessboard-header-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+.param-table-tab-row,
+.view-tab-row,
+.extrinsic-mode-row,
+.center-mode-row {
+    display: flex;
+    flex-direction: row;
+    gap: 0;
+    border-bottom: 1px solid #bbb;
+}
+.param-table-tab-row,
+.extrinsic-mode-row,
+.center-mode-row {
+    margin-left: 10px;
+    vertical-align: middle;
+}
+.param-table-tab-row button,
+.view-tab-row button,
+.extrinsic-mode-row button,
+.center-mode-row button {
+    min-width: 60px;
+    height: 24px;
+    font-size: 12px;
+    border: 1px solid #bbb;
+    border-bottom: none;
+    background: #ececec;
+    margin-bottom: -1px;
+    cursor: pointer;
+}
+.param-table-tab-row button.active,
+.view-tab-row button.active,
+.extrinsic-mode-row button.active,
+.center-mode-row button.active {
+    font-weight: bold;
+    background: #fff;
+}
+.view-tab-row button {
+    min-width: 130px;
+    height: 30px;
+}
+.extrinsic-mode-row button {
+    min-width: 92px;
+}
+.center-mode-row button {
+    min-width: 74px;
+}
 .axis-fov {
     font-weight: bold;
     min-width: 48px;
     font-family: inherit;
     font-size: inherit;
 }
-body {
-    display: flex;
-    justify-content: center;
+html {
+    width: 100%;		/* full viewport width for consistent layout */
+    min-width: 1300px;	/* keep layout fixed and use scrollbars when window is smaller */
+    height: 100%;		/* full viewport height for body baseline */
+    margin: 0;		/* reset browser margin */
+    padding: 0;		/* no internal padding on root */
+    overflow-y: auto;	/* allow vertical scrolling when window is short */
+    overflow-x: auto;	/* allow horizontal scrolling when window is narrow */
 }
-
-.controls {
-    display: flex;
-    flex-direction: row;
-    gap: 10px;
-    margin-left: 10px;
+body {
+    width: 100%;		/* match html width for layout consistency */
+    min-width: 1300px;	/* same min width, optional duplicate with html */
+    min-height: 100%;	/* ensure body can fill viewport height */
+    margin: 0;		/* remove default browser margins */
+    padding: 8px 0;	/* top/bottom breathing room around main UI */
+    display: flex;	/* center content horizontally */
+    justify-content: center;
+    overflow: visible;	/* avoid extra scrollbars inside body */
 }
 
 .column {
     display: flex;
     flex-direction: column;
+    gap: 10px;
+    margin-left: 10px;
+    padding: 8px 0; /* spacing at section top/bottom */
+}
+
+.controls {
+    display: flex;
+    flex-direction: row;
     gap: 10px;
     margin-left: 10px;
 }
@@ -34,86 +103,17 @@ body {
     text-align: center;
 }
 
-.view-tab-row {
-    display: flex;
-    flex-direction: row;
-    gap: 0;
-    justify-content: flex-start;
-    border-bottom: 1px solid #bbb;
-}
-
 .view-tab-row button {
     min-width: 130px;
     height: 30px;
-    border: 1px solid #bbb;
-    border-bottom: none;
-    background: #ececec;
-    margin-bottom: -1px;
-}
-
-.view-tab-row button.active {
-    font-weight: bold;
-    background: #fff;
-}
-
-.extrinsic-header-row {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-}
-
-.chessboard-header-row {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-}
-
-.extrinsic-mode-row {
-    display: flex;
-    flex-direction: row;
-    gap: 0;
-    border-bottom: 1px solid #bbb;
 }
 
 .extrinsic-mode-row button {
     min-width: 92px;
-    height: 24px;
-    font-size: 12px;
-    border: 1px solid #bbb;
-    border-bottom: none;
-    background: #ececec;
-    margin-bottom: -1px;
-}
-
-.extrinsic-mode-row button.active {
-    font-weight: bold;
-    background: #fff;
-}
-
-.center-mode-row {
-    display: flex;
-    flex-direction: row;
-    gap: 0;
-    border-bottom: 1px solid #bbb;
 }
 
 .center-mode-row button {
     min-width: 74px;
-    height: 24px;
-    font-size: 12px;
-    border: 1px solid #bbb;
-    border-bottom: none;
-    background: #ececec;
-    margin-bottom: -1px;
-}
-
-.center-mode-row button.active {
-    font-weight: bold;
-    background: #fff;
 }
 
 .curve-axis-options {
@@ -127,17 +127,21 @@ body {
     display: none;
 }
 
-.axis-group {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
+.axis-group,
+.curve-direction-row {
     font-family: sans-serif;
     font-size: 12px;
     background: #f5f5f5;
     border: 1px solid #bbb;
     border-radius: 4px;
     padding: 6px;
+}
+
+.axis-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
 }
 
 .axis-group > span {
@@ -171,12 +175,6 @@ body {
     justify-content: space-between;
     align-items: flex-start;
     gap: 10px;
-    font-family: sans-serif;
-    font-size: 12px;
-    background: #f5f5f5;
-    border: 1px solid #bbb;
-    border-radius: 4px;
-    padding: 6px;
 }
 
 .curve-direction-inputs {
