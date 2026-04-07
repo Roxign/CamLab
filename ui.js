@@ -23,29 +23,12 @@ const viewCurveBtn = document.getElementById('viewCurve');
 const curveAxisOptions = document.getElementById('curveAxisOptions');
 const curveDirectionAngleSlider = document.getElementById('curveDirectionAngle');
 const curveDirectionAngleText = document.getElementById('curveDirectionAngleText');
-const curveXUnitGroup = document.getElementById('curveXUnitGroup');
-const curveYUnitGroup = document.getElementById('curveYUnitGroup');
 const boardSizeLabel = document.getElementById('boardSizeLabel');
 const cornerGapLabel = document.getElementById('cornerGapLabel');
 const extraWhitePaddingCheckbox = document.getElementById('extraWhitePadding');
+const chessboardViewPanel = document.getElementById('chessboardViewPanel');
+const curveViewPanel = document.getElementById('curveViewPanel');
 
-const curveXUnitDeg = document.getElementById('curveXUnitDeg');
-const curveXUnitRad = document.getElementById('curveXUnitRad');
-const curveXUnitSlope = document.getElementById('curveXUnitSlope');
-const curveXUnitPixel = document.getElementById('curveXUnitPixel');
-const curveXUnitUm = document.getElementById('curveXUnitUm');
-const curveXUnitMm = document.getElementById('curveXUnitMm');
-const curveXUnitCm = document.getElementById('curveXUnitCm');
-const curveXUnitM = document.getElementById('curveXUnitM');
-
-const curveYUnitDeg = document.getElementById('curveYUnitDeg');
-const curveYUnitRad = document.getElementById('curveYUnitRad');
-const curveYUnitSlope = document.getElementById('curveYUnitSlope');
-const curveYUnitPixel = document.getElementById('curveYUnitPixel');
-const curveYUnitUm = document.getElementById('curveYUnitUm');
-const curveYUnitMm = document.getElementById('curveYUnitMm');
-const curveYUnitCm = document.getElementById('curveYUnitCm');
-const curveYUnitM = document.getElementById('curveYUnitM');
 
 const curveDirectionTLBtn = document.querySelector('#curveDirectionControls button[aria-label="Top-left"]');
 const curveDirectionTBtn = document.querySelector('#curveDirectionControls button[aria-label="Top"]');
@@ -56,11 +39,6 @@ const curveDirectionBLBtn = document.querySelector('#curveDirectionControls butt
 const curveDirectionBBtn = document.querySelector('#curveDirectionControls button[aria-label="Bottom"]');
 const curveDirectionBRBtn = document.querySelector('#curveDirectionControls button[aria-label="Bottom-right"]');
 
-let curveAxes = {
-    x: null,
-    y: null
-};
-
 curveCanvas._curveSamples = curveCanvas._curveSamples || {
     rawSamples: [],
     plotPoints: [],
@@ -68,27 +46,6 @@ curveCanvas._curveSamples = curveCanvas._curveSamples || {
 };
 
 function setupCurveAxisUI() {
-    const xOptions = [curveXUnitDeg, curveXUnitRad, curveXUnitSlope, curveXUnitPixel, curveXUnitUm, curveXUnitMm, curveXUnitCm, curveXUnitM];
-    const yOptions = [curveYUnitDeg, curveYUnitRad, curveYUnitSlope, curveYUnitPixel, curveYUnitUm, curveYUnitMm, curveYUnitCm, curveYUnitM];
-
-    xOptions.forEach(option => { if (option) option.name = 'curveXUnit'; });
-    yOptions.forEach(option => { if (option) option.name = 'curveYUnit'; });
-
-    curveAxes = {
-        x: {
-            unitGroup: curveXUnitGroup,
-            unitOptions: xOptions.filter(Boolean),
-            state: { unit: (xOptions.find(o => o?.checked) || curveXUnitDeg)?.value || 'deg' }
-        },
-        y: {
-            unitGroup: curveYUnitGroup,
-            unitOptions: yOptions.filter(Boolean),
-            state: { unit: (yOptions.find(o => o?.checked) || curveYUnitDeg)?.value || 'deg' }
-        }
-    };
-
-    if (tableXUnitSelect) tableXUnitSelect.value = curveAxes.x.state.unit;
-    if (tableYUnitSelect) tableYUnitSelect.value = curveAxes.y.state.unit;
 
     curveDirectionTLBtn.addEventListener('click', () => setCurveDirectionFromPreset('TL'));
     curveDirectionTBtn.addEventListener('click', () => setCurveDirectionFromPreset('T'));
@@ -98,15 +55,20 @@ function setupCurveAxisUI() {
     curveDirectionBLBtn.addEventListener('click', () => setCurveDirectionFromPreset('BL'));
     curveDirectionBBtn.addEventListener('click', () => setCurveDirectionFromPreset('B'));
     curveDirectionBRBtn.addEventListener('click', () => setCurveDirectionFromPreset('BR'));
-
 }
 
 function setParamTableMode(mode) {
     const showParam = mode === 'param';
-    paramTab.classList.toggle('active', showParam);
-    paramTab.setAttribute('aria-selected', showParam ? 'true' : 'false');
-    tableTab.classList.toggle('active', !showParam);
-    tableTab.setAttribute('aria-selected', showParam ? 'false' : 'true');
+    const curveModeVisible = viewCurveBtn?.classList.contains('active');
+
+    if (paramTab) {
+        paramTab.classList.toggle('active', showParam);
+        paramTab.setAttribute('aria-selected', showParam ? 'true' : 'false');
+    }
+    if (tableTab) {
+        tableTab.classList.toggle('active', !showParam);
+        tableTab.setAttribute('aria-selected', showParam ? 'false' : 'true');
+    }
 
     for (const rowId of paramTableRows) {
         const row = document.getElementById(rowId);
@@ -114,10 +76,10 @@ function setParamTableMode(mode) {
     }
 
     if (distortionLabelRow) distortionLabelRow.style.display = showParam ? '' : 'none';
-    if (tableTextboxes) tableTextboxes.style.display = showParam ? 'none' : 'flex';
-    if (eflRow) eflRow.style.display = showParam ? 'none' : 'inline-flex';
+    if (tableTextboxes) tableTextboxes.style.display = curveModeVisible ? 'flex' : 'none';
+    if (eflRow) eflRow.style.display = curveModeVisible ? 'inline-flex' : 'none';
 
-    if (!showParam) {
+    if (curveModeVisible) {
         updateEffectiveFocalLength();
         refreshCurveChart();
     }
@@ -134,6 +96,7 @@ function updateChessboardOriginTabs(mode = 'center') {
 function toggleChessUI(enabled) {
     viewChessboardBtn.classList.toggle('active', enabled);
     viewChessboardBtn.setAttribute('aria-selected', enabled ? 'true' : 'false');
+    if (chessboardViewPanel) chessboardViewPanel.classList.toggle('hidden', !enabled);
     if (enabled) {
         viewCurveBtn.classList.remove('active');
         viewCurveBtn.setAttribute('aria-selected', 'false');
@@ -148,16 +111,23 @@ function toggleChessUI(enabled) {
 function toggleCurveUI(enabled) {
     viewCurveBtn.classList.toggle('active', enabled);
     viewCurveBtn.setAttribute('aria-selected', enabled ? 'true' : 'false');
+    if (curveViewPanel) curveViewPanel.classList.toggle('hidden', !enabled);
     if (enabled) {
         viewChessboardBtn.classList.remove('active');
         viewChessboardBtn.setAttribute('aria-selected', 'false');
         curveAxisOptions.classList.remove('hidden');
         curveCanvas.classList.remove('hidden');
         curveCanvas.style.display = 'block';
+        if (tableTextboxes) tableTextboxes.style.display = 'flex';
+        if (eflRow) eflRow.style.display = 'inline-flex';
+        updateEffectiveFocalLength();
+        updateDistortionTableTextboxes();
     } else {
         curveAxisOptions.classList.add('hidden');
         curveCanvas.classList.add('hidden');
         curveCanvas.style.display = 'none';
+        if (tableTextboxes) tableTextboxes.style.display = 'none';
+        if (eflRow) eflRow.style.display = 'none';
     }
 }
 
@@ -200,7 +170,7 @@ function updateExtrinsicModeButtons(mode = 'world2cam') {
 
 
 function getCurveAxisValue(axisKey, slope, rayZ, focalLengthPx, pixelSizeUm, unitOverride = null) {
-    const unit = unitOverride || curveAxes[axisKey]?.state.unit || 'deg';
+    const unit = unitOverride || (axisKey === 'x' ? tableXUnitSelect?.value : tableYUnitSelect?.value) || 'deg';
 
     if (unit === 'rad' || unit === 'deg' || unit === 'tanθ') {
         const frontAngle = Math.atan(slope);
@@ -229,7 +199,7 @@ function getCurveAxisValue(axisKey, slope, rayZ, focalLengthPx, pixelSizeUm, uni
 const unitKind = { deg: 'angle', rad: 'angle', 'tanθ': 'angle', pixel: 'height', um: 'height', mm: 'height', cm: 'height', m: 'height' };
 
 function getCurveAxisTitle(axisKey) {
-    const unit = curveAxes[axisKey].state.unit || 'deg';
+    const unit = (axisKey === 'x' ? tableXUnitSelect?.value : tableYUnitSelect?.value) || 'deg';
     const kind = unitKind[unit] || 'height';
 
     const axisTitles = {
@@ -238,16 +208,6 @@ function getCurveAxisTitle(axisKey) {
     };
 
     return `${axisTitles[axisKey][kind]} (${unit})`;
-}
-
-function bindCurveAxisControls(axisKey) {
-    const axis = curveAxes[axisKey];
-    axis.unitOptions.forEach(option => {
-        option.addEventListener('change', function () {
-            axis.state.unit = this.value;
-            refreshCurveChart();
-        });
-    });
 }
 
 function setCurveDirectionAngle(deg) {
@@ -814,11 +774,8 @@ viewCurveBtn.addEventListener('click', () => {
 
 setupCurveAxisUI();
 
-bindCurveAxisControls('x');
-bindCurveAxisControls('y');
-
-if (tableXUnitSelect) tableXUnitSelect.addEventListener('change', () => updateDistortionTableTextboxes());
-if (tableYUnitSelect) tableYUnitSelect.addEventListener('change', () => updateDistortionTableTextboxes());
+if (tableXUnitSelect) tableXUnitSelect.addEventListener('change', () => refreshCurveChart());
+if (tableYUnitSelect) tableYUnitSelect.addEventListener('change', () => refreshCurveChart());
 
 curveDirectionAngleSlider.addEventListener('input', function () {
     curveDirectionAngleText.value = this.value;
@@ -834,4 +791,4 @@ initCurveChart();
 setVisualizationMode('chessboard');
 updateExtrinsicModeButtons('world2cam');
 updateChessboardOriginTabs('center');
-setCurveDirectionAngle(parseFloat(curveDirectionAngleSlider.value));
+setCurveDirectionFromPreset('TR');

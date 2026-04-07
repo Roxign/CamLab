@@ -59,7 +59,7 @@
 }
 html {
     width: 100%;		/* full viewport width for consistent layout */
-    min-width: 1300px;	/* keep layout fixed and use scrollbars when window is smaller */
+    min-width: 1420px;	/* keep layout fixed and use scrollbars when window is smaller */
     height: 100%;		/* full viewport height for body baseline */
     margin: 0;		/* reset browser margin */
     padding: 0;		/* no internal padding on root */
@@ -68,28 +68,86 @@ html {
 }
 body {
     width: 100%;		/* match html width for layout consistency */
-    min-width: 1300px;	/* same min width, optional duplicate with html */
+    min-width: 1420px;	/* same min width, optional duplicate with html */
     min-height: 100%;	/* ensure body can fill viewport height */
     margin: 0;		/* remove default browser margins */
     padding: 8px 0;	/* top/bottom breathing room around main UI */
     display: flex;	/* center content horizontally */
     justify-content: center;
+    align-items: flex-start;
     overflow: visible;	/* avoid extra scrollbars inside body */
+}
+
+.app-shell {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 12px;
+    width: max-content;
 }
 
 .column {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    margin-left: 10px;
-    padding: 8px 0; /* spacing at section top/bottom */
+    margin-left: 0;
+    padding: 0;
 }
 
 .controls {
     display: flex;
     flex-direction: row;
     gap: 10px;
-    margin-left: 10px;
+    margin-left: 0;
+}
+
+.workspace-column {
+    flex: 0 0 auto;
+}
+
+.workspace-mode-panel {
+    display: block;
+}
+
+.mode-layout {
+    display: flex;
+    flex-direction: row;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.curve-mode-layout {
+    align-items: stretch;
+}
+
+.control-panel,
+.canvas-panel,
+.curve-main-column,
+.curve-table-panel {
+    background: #fff;
+    border: 1px solid #d5d5d5;
+    border-radius: 6px;
+    padding: 10px;
+    box-sizing: border-box;
+}
+
+.intrinsic-panel,
+.options-panel {
+    width: 320px;
+}
+
+.canvas-panel,
+.curve-main-column {
+    width: 662px;
+}
+
+.curve-table-panel {
+    width: 320px;
+    min-width: 320px;
+}
+
+.tab-strip-hidden {
+    display: none;
 }
 
 .canvas-stack {
@@ -120,7 +178,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    width: 640px;
+    width: 100%;
 }
 
 .hidden {
@@ -257,22 +315,26 @@ body {
     height: 124px;
 }
 
-.controls label {
+.controls label,
+.control-panel label {
     display: inline-block;
     width: 15px;
     font-family: monospace;
 }
 
-.controls input[type="text"] {
+.controls input[type="text"],
+.control-panel input[type="text"] {
     width: 40px;
     text-align: right;
 }
 
-.controls input[type="range"] {
+.controls input[type="range"],
+.control-panel input[type="range"] {
     width: 210px;
 }
 
-.controls input[type="checkbox"] {
+.controls input[type="checkbox"],
+.control-panel input[type="checkbox"] {
     width: 20px;
     height: 20px;
     vertical-align: middle;
@@ -286,7 +348,8 @@ body {
     flex-wrap: wrap;
 }
 
-.controls .checkbox-metric-row label {
+.controls .checkbox-metric-row label,
+.control-panel .checkbox-metric-row label {
     width: 28px;
 }
 
@@ -295,6 +358,10 @@ body {
     font-size: inherit;
     color: inherit;
     white-space: nowrap;
+}
+
+.metric-bold {
+    font-weight: bold;
 }
 
 .pixel-size-row {
@@ -334,10 +401,10 @@ body {
 #table-textboxes {
     flex-direction: row;
     gap: 16px;
-    margin-top: 12px;
-    justify-content: center;
+    margin-top: 0;
+    justify-content: flex-start;
     align-items: stretch;
-    width: 100%;
+    width: auto;
 }
 
 .table-textbox-col {
@@ -367,7 +434,7 @@ body {
 
 #table-textboxes textarea {
     width: 120px;
-    height: 360px;
+    height: 430px;
     resize: vertical;
     font-family: Consolas, 'Courier New', monospace;
     font-size: 12px;
@@ -380,8 +447,15 @@ canvas {
 }
 
 #curveCanvas {
+    display: block;
     background-color: white;
     border: none;
     width: 640px;
     height: 480px;
+}
+
+#reset {
+    align-self: flex-start;
+    margin-top: 4px;
+    padding: 6px 14px;
 }

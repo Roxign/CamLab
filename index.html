@@ -9,87 +9,13 @@
 </head>
 
 <body>
-    <div class="column">
-        <!-- <h1 style="text-align: center;">Camera Intrinsic & Distortion Visualization</h1> -->
-        <div class="repo-link-row">
-            <!-- <a href="https://github.com/Roxign/CamLab" target="_blank" rel="noopener noreferrer">CamLab on GitHub</a> -->
-        </div>
-        <div class="view-tab-row" role="tablist" aria-label="Visualization view tabs">
-            <button id="viewChessboard" type="button" role="tab" aria-selected="true" aria-controls="canvas" title="Show the chessboard view for calibration.">Chessboard</button>
-            <button id="viewCurve" type="button" role="tab" aria-selected="false" aria-controls="curveCanvas" title="Show the distortion curve view for lens analysis.">Distortion Curve</button>
-        </div>
-        <div class="canvas-stack">
-            <canvas id="canvas" width="640" height="360"></canvas>
-            <canvas id="curveCanvas" class="hidden" width="640" height="480"></canvas>
-        </div>
-        <div class="curve-axis-options" id="curveAxisOptions">
-            <div class="axis-group" id="curveXUnitGroup">
-                <span>X unit:</span>
-                <label><input type="radio" id="curveXUnitDeg" value="deg" checked> deg</label>
-                <label><input type="radio" id="curveXUnitRad" value="rad"> rad</label>
-                <label><input type="radio" id="curveXUnitSlope" value="tanθ"> tanθ</label>
-                <label><input type="radio" id="curveXUnitPixel" value="pixel"> pixel</label>
-                <label><input type="radio" id="curveXUnitUm" value="um"> um</label>
-                <label><input type="radio" id="curveXUnitMm" value="mm"> mm</label>
-                <label><input type="radio" id="curveXUnitCm" value="cm"> cm</label>
-                <label><input type="radio" id="curveXUnitM" value="m"> m</label>
-            </div>
-            <div class="axis-group" id="curveYUnitGroup">
-                <span>Y unit:</span>
-                <label><input type="radio" id="curveYUnitDeg" value="deg" checked> deg</label>
-                <label><input type="radio" id="curveYUnitRad" value="rad"> rad</label>
-                <label><input type="radio" id="curveYUnitSlope" value="tanθ"> tanθ</label>
-                <label><input type="radio" id="curveYUnitPixel" value="pixel"> pixel</label>
-                <label><input type="radio" id="curveYUnitUm" value="um"> um</label>
-                <label><input type="radio" id="curveYUnitMm" value="mm"> mm</label>
-                <label><input type="radio" id="curveYUnitCm" value="cm"> cm</label>
-                <label><input type="radio" id="curveYUnitM" value="m"> m</label>
-            </div>
-            <div class="curve-direction-row" id="curveDirectionControls">
-                <div class="curve-direction-inputs">
-                    <div class="curve-direction-angle-col">
-                        <div class="curve-direction-angle-row">
-                            <label for="curveDirectionAngleText">image-plane angle (deg)</label>
-                            <input type="text" id="curveDirectionAngleText" value="45">
-                        </div>
-                        <input type="range" id="curveDirectionAngle" min="-180" max="180" value="45" step="1">
-                        <div class="curve-direction-pad" aria-label="Direction presets">
-                            <button type="button" aria-label="Top-left" title="Set direction to Top-Left">TL</button>
-                            <button type="button" aria-label="Top" title="Set direction to Top">T</button>
-                            <button type="button" aria-label="Top-right" title="Set direction to Top-Right">TR</button>
-                            <button type="button" aria-label="Left" title="Set direction to Left">L</button>
-                            <span class="curve-direction-pad-hole" aria-hidden="true"></span>
-                            <button type="button" aria-label="Right" title="Set direction to Right">R</button>
-                            <button type="button" aria-label="Bottom-left" title="Set direction to Bottom-Left">BL</button>
-                            <button type="button" aria-label="Bottom" title="Set direction to Bottom">B</button>
-                            <button type="button" aria-label="Bottom-right" title="Set direction to Bottom-Right">BR</button>
-                        </div>
-                    </div>
-                </div>
-                <div class="curve-direction-preview-wrap">
-                    <canvas id="directionCanvas" width="220" height="124"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="controls">
-        <div class="column">
-
-            <!-- Intrinsic -->
+    <div class="app-shell">
+        <div class="column control-panel intrinsic-panel">
             <div class="intrinsic-header-row">
                 <label style="font-family: 'sans-serif'; font-weight: bold; font-size: 20px;">Intrinsic:</label>
-                <div class="param-table-tab-row" role="tablist" aria-label="Param/Table tabs">
+                <div class="param-table-tab-row tab-strip-hidden" role="tablist" aria-label="Param/Table tabs">
                     <button id="paramTab" type="button" role="tab" aria-selected="true" class="active" title="Show parameter controls">Param</button>
                     <button id="tableTab" type="button" role="tab" aria-selected="false" title="Show table mode">Table</button>
-                </div>
-            </div>
-            <div class="pixel-size-row">
-                <label for="psText" title="Pixel size in micrometers per pixel (μm/px)">um/px</label>
-                <input type="text" id="psText" value="1.0" title="Set the pixel size (μm/px)">
-                <div id="efl-row" class="table-only-inline" style="display:none;">
-                    <label for="eflText" title="Current effective focal length in micrometers">EFL</label>
-                    <input type="text" id="eflText" value="" readonly title="Current effective focal length in micrometers">
-                    <span class="unit-suffix">um</span>
                 </div>
             </div>
             <div>
@@ -123,7 +49,6 @@
                 <input type="range" id="cy" name="cy" min="0" max="1080" value="540" title="Adjust principal point y (pixels)">
             </div>
 
-            <!-- Distortion label, hidden in table mode by script -->
             <div id="distortion-label-row">
                 <label style="font-family: 'sans-serif'; font-weight: bold; font-size: 20px;">Distortion:</label>
             </div>
@@ -176,129 +101,191 @@
                     <span class="axis-fov">dFOV: <span id="dFOVResult">-</span>°</span>
                 </span>
             </div>
-
-            <!-- Table mode textboxes -->
-            <div id="table-textboxes" style="display:none;">
-                <div class="table-textbox-col">
-                    <div class="table-textbox-header">
-                        <label id="table-x-label" for="table-x-unit">X</label>
-                        <select id="table-x-unit" title="Select the unit for X curve sample points">
-                            <option value="deg" selected>deg</option>
-                            <option value="rad">rad</option>
-                            <option value="tanθ">tanθ</option>
-                            <option value="pixel">pixel</option>
-                            <option value="um">um</option>
-                            <option value="mm">mm</option>
-                            <option value="cm">cm</option>
-                            <option value="m">m</option>
-                        </select>
-                    </div>
-                    <textarea id="table-textbox-1" readonly spellcheck="false" title="Converted X sample points from the current distortion curve"></textarea>
-                </div>
-                <div class="table-textbox-col">
-                    <div class="table-textbox-header">
-                        <label id="table-y-label" for="table-y-unit">Y</label>
-                        <select id="table-y-unit" title="Select the unit for Y curve sample points">
-                            <option value="deg" selected>deg</option>
-                            <option value="rad">rad</option>
-                            <option value="tanθ">tanθ</option>
-                            <option value="pixel">pixel</option>
-                            <option value="um">um</option>
-                            <option value="mm">mm</option>
-                            <option value="cm">cm</option>
-                            <option value="m">m</option>
-                        </select>
-                    </div>
-                    <textarea id="table-textbox-2" readonly spellcheck="false" title="Converted Y sample points from the current distortion curve"></textarea>
-                </div>
-            </div>
-        </div>
-        <div class="column">
-
-            <!-- Extrinsic -->
-            <div class="extrinsic-header-row">
-                <label style="font-family: 'sans-serif'; font-weight: bold; font-size: 20px;">Extrinsic:</label>
-                <div class="extrinsic-mode-row" role="tablist" aria-label="Extrinsic transform mode tabs">
-                    <button id="world2cam" type="button" role="tab" aria-selected="true" class="active" title="Transform world coordinates to camera coordinates">world2cam</button>
-                    <button id="cam2world" type="button" role="tab" aria-selected="false" title="Transform camera coordinates to world coordinates">cam2world</button>
-                </div>
-            </div>
-            <div>
-                <label for="rx" title="Rotation around x-axis (degrees)">r<sub>x</sub></label>
-                <input type="text" id="rxText" value="0" title="Set rotation x (degrees)">
-                <input type="range" id="rx" name="rx" min="-180" max="180" value="0" title="Adjust rotation x (degrees)">
-            </div>
-            <div>
-                <label for="ry" title="Rotation around y-axis (degrees)">r<sub>y</sub></label>
-                <input type="text" id="ryText" value="0" title="Set rotation y (degrees)">
-                <input type="range" id="ry" name="ry" min="-180" max="180" value="0" title="Adjust rotation y (degrees)">
-            </div>
-            <div>
-                <label for="rz" title="Rotation around z-axis (degrees)">r<sub>z</sub></label>
-                <input type="text" id="rzText" value="0" title="Set rotation z (degrees)">
-                <input type="range" id="rz" name="rz" min="-180" max="180" value="0" title="Adjust rotation z (degrees)">
-            </div>
-            <div>
-                <label for="tx" title="Translation along x-axis (mm)">t<sub>x</sub></label>
-                <input type="text" id="txText" value="0" title="Set translation x (mm)">
-                <input type="range" id="tx" name="tx" min="-1000" max="1000" value="0" title="Adjust translation x (mm)">
-            </div>
-            <div>
-                <label for="ty" title="Translation along y-axis (mm)">t<sub>y</sub></label>
-                <input type="text" id="tyText" value="0" title="Set translation y (mm)">
-                <input type="range" id="ty" name="ty" min="-1000" max="1000" value="0" title="Adjust translation y (mm)">
-            </div>
-            <div>
-                <label for="tz" title="Translation along z-axis (mm)">t<sub>z</sub></label>
-                <input type="text" id="tzText" value="1000" title="Set translation z (mm)">
-                <input type="range" id="tz" name="tz" min="-10000" max="10000" value="1000" title="Adjust translation z (mm)">
-            </div>
-            <!-- Chessboard -->
-            <div class="chessboard-header-row">
-                <label style="font-family: 'sans-serif'; font-weight: bold; font-size: 20px;">Chessboard:</label>
-                <div class="center-mode-row" role="tablist" aria-label="Chessboard coordinate origin tabs">
-                    <button id="centerAtTL" type="button" role="tab" aria-selected="false" title="TL-CS: Set the chessboard coordinate system origin to the Top-Left corner. Use this if you want (0,0) at the top-left square, matching most image coordinate systems.">TL-CS</button>
-                    <button id="centerAtCenter" type="button" role="tab" aria-selected="true" class="active" title="CT-CS: Set the chessboard coordinate system origin to the Center of the board. Use this if you want (0,0) at the center square, which is common in some calibration workflows.">CT-CS</button>
-                </div>
-            </div>
-            <div>
-                <!-- number of inner corners along width (bc) and height (br) -->
-                <label for="bc" title="Number of inner corners along chessboard width">bc</label>
-                <input type="text" id="bcText" value="12" title="Set number of inner corners (width)">
-                <input type="range" id="bc" name="bc" min="3" max="100" value="12" title="Adjust number of inner corners (width)">
-            </div>
-            <div>
-                <label for="br" title="Number of inner corners along chessboard height">br</label>
-                <input type="text" id="brText" value="9" title="Set number of inner corners (height)">
-                <input type="range" id="br" name="br" min="3" max="100" value="9" title="Adjust number of inner corners (height)">
-            </div>
-            <div>
-                <label for="bw" title="Chessboard square width (mm)">bw</label>
-                <input type="text" id="bwText" value="100" title="Set chessboard square width (mm)">
-                <input type="range" id="bw" name="bw" min="1" max="1000" value="100" title="Adjust chessboard square width (mm)">
-            </div>
-            <div>
-                <label for="bh" title="Chessboard square height (mm)">bh</label>
-                <input type="text" id="bhText" value="100" title="Set chessboard square height (mm)">
-                <input type="range" id="bh" name="bh" min="1" max="1000" value="100" title="Adjust chessboard square height (mm)">
-            </div>
-            <div class="checkbox-metric-row">
-                <label for="showSquares" title="Show or hide chessboard squares">■□</label>
-                <input type="checkbox" id="showSquares" name="showSquares" title="Toggle chessboard squares">
-                <span id="boardSizeLabel" class="inline-metric" title="Total chessboard size from current settings">size: -</span>
-            </div>
-            <div class="checkbox-metric-row">
-                <!-- when enabled draw filled circles at each corner after the board is rendered -->
-                <label for="showCircles" title="Show or hide chessboard circles">●●</label>
-                <input type="checkbox" id="showCircles" name="showCircles" checked="true" title="Toggle chessboard circles">
-                <span id="cornerGapLabel" class="inline-metric" title="Minimum image-space spacing between adjacent chessboard corners">min corner Δ: -</span>
-            </div>
-            <div class="checkbox-metric-row">
-                <label for="extraWhitePadding" title="Enable extra white padding around the chessboard design">pad</label>
-                <input type="checkbox" id="extraWhitePadding" name="extraWhitePadding" title="Toggle extra white padding around the chessboard design">
-                <span class="inline-metric">extra white padding</span>
-            </div>
             <button id="reset" title="Reset all parameters to default values">Reset</button>
+        </div>
+
+        <div class="column workspace-column">
+            <div class="view-tab-row" role="tablist" aria-label="Visualization view tabs">
+                <button id="viewChessboard" type="button" role="tab" aria-selected="true" aria-controls="canvas" title="Show the chessboard view for calibration.">Chessboard</button>
+                <button id="viewCurve" type="button" role="tab" aria-selected="false" aria-controls="curveCanvas" title="Show the distortion curve view for lens analysis.">Distortion Curve</button>
+            </div>
+
+            <div id="chessboardViewPanel" class="workspace-mode-panel">
+                <div class="mode-layout">
+                    <div class="canvas-panel">
+                        <div class="canvas-stack">
+                            <canvas id="canvas" width="640" height="360"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="column control-panel options-panel">
+                        <div class="extrinsic-header-row">
+                            <label style="font-family: 'sans-serif'; font-weight: bold; font-size: 20px;">Extrinsic:</label>
+                            <div class="extrinsic-mode-row" role="tablist" aria-label="Extrinsic transform mode tabs">
+                                <button id="world2cam" type="button" role="tab" aria-selected="true" class="active" title="Transform world coordinates to camera coordinates">world2cam</button>
+                                <button id="cam2world" type="button" role="tab" aria-selected="false" title="Transform camera coordinates to world coordinates">cam2world</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="rx" title="Rotation around x-axis (degrees)">r<sub>x</sub></label>
+                            <input type="text" id="rxText" value="0" title="Set rotation x (degrees)">
+                            <input type="range" id="rx" name="rx" min="-180" max="180" value="0" title="Adjust rotation x (degrees)">
+                        </div>
+                        <div>
+                            <label for="ry" title="Rotation around y-axis (degrees)">r<sub>y</sub></label>
+                            <input type="text" id="ryText" value="0" title="Set rotation y (degrees)">
+                            <input type="range" id="ry" name="ry" min="-180" max="180" value="0" title="Adjust rotation y (degrees)">
+                        </div>
+                        <div>
+                            <label for="rz" title="Rotation around z-axis (degrees)">r<sub>z</sub></label>
+                            <input type="text" id="rzText" value="0" title="Set rotation z (degrees)">
+                            <input type="range" id="rz" name="rz" min="-180" max="180" value="0" title="Adjust rotation z (degrees)">
+                        </div>
+                        <div>
+                            <label for="tx" title="Translation along x-axis (mm)">t<sub>x</sub></label>
+                            <input type="text" id="txText" value="0" title="Set translation x (mm)">
+                            <input type="range" id="tx" name="tx" min="-1000" max="1000" value="0" title="Adjust translation x (mm)">
+                        </div>
+                        <div>
+                            <label for="ty" title="Translation along y-axis (mm)">t<sub>y</sub></label>
+                            <input type="text" id="tyText" value="0" title="Set translation y (mm)">
+                            <input type="range" id="ty" name="ty" min="-1000" max="1000" value="0" title="Adjust translation y (mm)">
+                        </div>
+                        <div>
+                            <label for="tz" title="Translation along z-axis (mm)">t<sub>z</sub></label>
+                            <input type="text" id="tzText" value="1000" title="Set translation z (mm)">
+                            <input type="range" id="tz" name="tz" min="-10000" max="10000" value="1000" title="Adjust translation z (mm)">
+                        </div>
+
+                        <div class="chessboard-header-row">
+                            <label style="font-family: 'sans-serif'; font-weight: bold; font-size: 20px;">Chessboard:</label>
+                            <div class="center-mode-row" role="tablist" aria-label="Chessboard coordinate origin tabs">
+                                <button id="centerAtTL" type="button" role="tab" aria-selected="false" title="TL-CS: Set the chessboard coordinate system origin to the Top-Left corner. Use this if you want (0,0) at the top-left square, matching most image coordinate systems.">TL-CS</button>
+                                <button id="centerAtCenter" type="button" role="tab" aria-selected="true" class="active" title="CT-CS: Set the chessboard coordinate system origin to the Center of the board. Use this if you want (0,0) at the center square, which is common in some calibration workflows.">CT-CS</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="bc" title="Number of inner corners along chessboard width">bc</label>
+                            <input type="text" id="bcText" value="12" title="Set number of inner corners (width)">
+                            <input type="range" id="bc" name="bc" min="3" max="100" value="12" title="Adjust number of inner corners (width)">
+                        </div>
+                        <div>
+                            <label for="br" title="Number of inner corners along chessboard height">br</label>
+                            <input type="text" id="brText" value="9" title="Set number of inner corners (height)">
+                            <input type="range" id="br" name="br" min="3" max="100" value="9" title="Adjust number of inner corners (height)">
+                        </div>
+                        <div>
+                            <label for="bw" title="Chessboard square width (mm)">bw</label>
+                            <input type="text" id="bwText" value="100" title="Set chessboard square width (mm)">
+                            <input type="range" id="bw" name="bw" min="1" max="1000" value="100" title="Adjust chessboard square width (mm)">
+                        </div>
+                        <div>
+                            <label for="bh" title="Chessboard square height (mm)">bh</label>
+                            <input type="text" id="bhText" value="100" title="Set chessboard square height (mm)">
+                            <input type="range" id="bh" name="bh" min="1" max="1000" value="100" title="Adjust chessboard square height (mm)">
+                        </div>
+                        <div class="checkbox-metric-row">
+                            <label for="showSquares" title="Show or hide chessboard squares">■□</label>
+                            <input type="checkbox" id="showSquares" name="showSquares" title="Toggle chessboard squares">
+                        </div>
+                        <div class="checkbox-metric-row">
+                            <label for="showCircles" title="Show or hide chessboard circles">●●</label>
+                            <input type="checkbox" id="showCircles" name="showCircles" checked="true" title="Toggle chessboard circles">
+                        </div>
+                        <div class="checkbox-metric-row">
+                            <label for="extraWhitePadding" title="Enable extra white padding around the chessboard design">pad</label>
+                            <input type="checkbox" id="extraWhitePadding" name="extraWhitePadding" title="Toggle extra white padding around the chessboard design">
+                        </div>
+                        <div class="checkbox-metric-row">
+                            <span id="boardSizeLabel" class="inline-metric metric-bold" title="Total chessboard size from current settings">size: -</span>
+                        </div>
+                        <div class="checkbox-metric-row">
+                            <span id="cornerGapLabel" class="inline-metric metric-bold" title="Minimum image-space spacing between adjacent chessboard corners">min corner Δ: -</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="curveViewPanel" class="workspace-mode-panel hidden">
+                <div class="mode-layout curve-mode-layout">
+                    <div class="column curve-main-column">
+                        <div class="pixel-size-row curve-meta-row">
+                            <label for="psText" title="Pixel size in micrometers per pixel (μm/px)">um/px</label>
+                            <input type="text" id="psText" value="1.0" title="Set the pixel size (μm/px)">
+                            <div id="efl-row" class="table-only-inline" style="display:none;">
+                                <label for="eflText" title="Current effective focal length in micrometers">EFL</label>
+                                <input type="text" id="eflText" value="" readonly title="Current effective focal length in micrometers">
+                                <span class="unit-suffix">um</span>
+                            </div>
+                        </div>
+                        <canvas id="curveCanvas" class="hidden" width="640" height="480"></canvas>
+                        <div class="curve-axis-options hidden" id="curveAxisOptions">
+                            <div class="curve-direction-row" id="curveDirectionControls">
+                                <div class="curve-direction-inputs">
+                                    <div class="curve-direction-angle-col">
+                                        <div class="curve-direction-angle-row">
+                                            <label for="curveDirectionAngleText">image-plane angle (deg)</label>
+                                            <input type="text" id="curveDirectionAngleText" value="0">
+                                        </div>
+                                        <input type="range" id="curveDirectionAngle" min="-180" max="180" value="0" step="1">
+                                    </div>
+                                </div>
+                                <div class="curve-direction-pad" aria-label="Direction presets">
+                                    <button type="button" aria-label="Top-left" title="Set direction to Top-Left">TL</button>
+                                    <button type="button" aria-label="Top" title="Set direction to Top">T</button>
+                                    <button type="button" aria-label="Top-right" title="Set direction to Top-Right">TR</button>
+                                    <button type="button" aria-label="Left" title="Set direction to Left">L</button>
+                                    <span class="curve-direction-pad-hole" aria-hidden="true"></span>
+                                    <button type="button" aria-label="Right" title="Set direction to Right">R</button>
+                                    <button type="button" aria-label="Bottom-left" title="Set direction to Bottom-Left">BL</button>
+                                    <button type="button" aria-label="Bottom" title="Set direction to Bottom">B</button>
+                                    <button type="button" aria-label="Bottom-right" title="Set direction to Bottom-Right">BR</button>
+                                </div>
+                                <div class="curve-direction-preview-wrap">
+                                    <canvas id="directionCanvas" width="220" height="124"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="curve-table-panel">
+                        <div id="table-textboxes" style="display:none;">
+                            <div class="table-textbox-col">
+                                <div class="table-textbox-header">
+                                    <label id="table-x-label" for="table-x-unit">X</label>
+                                    <select id="table-x-unit" title="Select the unit for X curve sample points">
+                                        <option value="deg" selected>deg</option>
+                                        <option value="rad">rad</option>
+                                        <option value="tanθ">tanθ</option>
+                                        <option value="pixel">pixel</option>
+                                        <option value="um">um</option>
+                                        <option value="mm">mm</option>
+                                        <option value="cm">cm</option>
+                                        <option value="m">m</option>
+                                    </select>
+                                </div>
+                                <textarea id="table-textbox-1" readonly spellcheck="false" title="Converted X sample points from the current distortion curve"></textarea>
+                            </div>
+                            <div class="table-textbox-col">
+                                <div class="table-textbox-header">
+                                    <label id="table-y-label" for="table-y-unit">Y</label>
+                                    <select id="table-y-unit" title="Select the unit for Y curve sample points">
+                                        <option value="deg" selected>deg</option>
+                                        <option value="rad">rad</option>
+                                        <option value="tanθ">tanθ</option>
+                                        <option value="pixel">pixel</option>
+                                        <option value="um">um</option>
+                                        <option value="mm">mm</option>
+                                        <option value="cm">cm</option>
+                                        <option value="m">m</option>
+                                    </select>
+                                </div>
+                                <textarea id="table-textbox-2" readonly spellcheck="false" title="Converted Y sample points from the current distortion curve"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
