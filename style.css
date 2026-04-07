@@ -279,12 +279,99 @@ body {
     margin-left: 0px;
 }
 
+.checkbox-metric-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.controls .checkbox-metric-row label {
+    width: 28px;
+}
+
+.inline-metric {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+    white-space: nowrap;
+}
+
+.pixel-size-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
 .pixel-size-row label {
     width: 44px;
 }
 
 .pixel-size-row input[type="text"] {
     width: 52px;
+}
+
+.table-only-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#efl-row label {
+    width: 28px;
+}
+
+#efl-row input[type="text"] {
+    width: 72px;
+}
+
+.unit-suffix {
+    font-family: sans-serif;
+    min-width: 18px;
+}
+
+#table-textboxes {
+    flex-direction: row;
+    gap: 16px;
+    margin-top: 12px;
+    justify-content: center;
+    align-items: stretch;
+    width: 100%;
+}
+
+.table-textbox-col {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: stretch;
+}
+
+.table-textbox-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-family: sans-serif;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.table-textbox-header label {
+    width: auto;
+}
+
+.table-textbox-header select {
+    width: 92px;
+}
+
+#table-textboxes textarea {
+    width: 120px;
+    height: 360px;
+    resize: vertical;
+    font-family: Consolas, 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1.35;
 }
 
 canvas {

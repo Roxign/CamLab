@@ -50,8 +50,63 @@ function getChessboardSettings() {
         parseFloat(document.getElementById('bh').value),
         document.getElementById('centerAtCenter').classList.contains('active'),
         document.getElementById('showSquares').checked,
-        document.getElementById('showCircles').checked
+        document.getElementById('showCircles').checked,
+        document.getElementById('extraWhitePadding')?.checked ?? false
     ];
+}
+
+function getChessboardCornerRanges(bc, br, center) {
+    return {
+        xMin: center ? -(bc - 1) / 2 : 0,
+        xMax: center ? bc / 2 : bc,
+        yMin: center ? -(br - 1) / 2 : 0,
+        yMax: center ? br / 2 : br
+    };
+}
+
+function getChessboardMetrics() {
+    const [, iw, ih, fx, fy, cx, cy] = getIntrinsics();
+    const [k1, k2, p1, p2, k3, k4, k5, k6, fisheye] = getDistortion();
+    const [bc, br, bw, bh, center, , , extraWhitePadding] = getChessboardSettings();
+    const { xMin, xMax, yMin, yMax } = getChessboardCornerRanges(bc, br, center);
+
+    const totalWidth = (bc + 1 + (extraWhitePadding ? 2 : 0)) * bw;
+    const totalHeight = (br + 1 + (extraWhitePadding ? 2 : 0)) * bh;
+    const projectedPoints = [];
+
+    for (let y = yMin; y < yMax; y++) {
+        const row = [];
+        for (let x = xMin; x < xMax; x++) {
+            const [u, v, zc] = projectPointToImage([x * bw, y * bh, 0], fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
+            const visible = isFinite(u) && isFinite(v) && zc > 0 && u >= 0 && u <= iw && v >= 0 && v <= ih;
+            row.push({ u, v, visible });
+        }
+        projectedPoints.push(row);
+    }
+
+    let minCornerGapPx = Infinity;
+    for (let row = 0; row < projectedPoints.length; row++) {
+        for (let col = 0; col < projectedPoints[row].length; col++) {
+            const point = projectedPoints[row][col];
+            if (!point?.visible) continue;
+
+            const right = projectedPoints[row][col + 1];
+            const down = projectedPoints[row + 1]?.[col];
+
+            if (right?.visible) {
+                minCornerGapPx = Math.min(minCornerGapPx, Math.hypot(point.u - right.u, point.v - right.v));
+            }
+            if (down?.visible) {
+                minCornerGapPx = Math.min(minCornerGapPx, Math.hypot(point.u - down.u, point.v - down.v));
+            }
+        }
+    }
+
+    return {
+        totalWidth,
+        totalHeight,
+        minCornerGapPx: isFinite(minCornerGapPx) ? minCornerGapPx : null
+    };
 }
 
 function eulerAnglesToRotationMatrix(rx, ry, rz) {
@@ -113,7 +168,7 @@ function applyDistortion(xc, yc, zc, k1, k2, p1, p2, k3, k4, k5, k6, fisheye) {
     return [xp, yp];
 }
 
-function projectPoint(p3d, iw, ih, fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, k5, k6, fisheye) {
+function projectPointToImage(p3d, fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, k5, k6, fisheye) {
     const [R11, R12, R13, R21, R22, R23, R31, R32, R33] = eulerAnglesToRotationMatrix(rx_wc, ry_wc, rz_wc);
     const [xw, yw, zw] = p3d;
 
@@ -122,10 +177,14 @@ function projectPoint(p3d, iw, ih, fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, k5, k
     const zc = R31 * xw + R32 * yw + R33 * zw + tz_wc;
 
     const [xp, yp] = applyDistortion(xc, yc, zc, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
+    const u = fx * xp + cx;
+    const v = fy * yp + cy;
 
-    let u = fx * xp + cx;
-    let v = fy * yp + cy;
+    return [u, v, zc];
+}
 
+function projectPoint(p3d, iw, ih, fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, k5, k6, fisheye) {
+    let [u, v, zc] = projectPointToImage(p3d, fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
     u = u * chessCanvas.width / iw;
     v = v * chessCanvas.height / ih;
     return [u, v, zc];
@@ -277,7 +336,7 @@ function updateUndistortTable(iw, ih, fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, k5
 function renderChessboard() {
     const [, iw, ih, fx, fy, cx, cy] = getIntrinsics();
     const [k1, k2, p1, p2, k3, k4, k5, k6, fisheye] = getDistortion();
-    const [bc, br, bw, bh, center, showSquares, showCircles] = getChessboardSettings();
+    const [bc, br, bw, bh, center, showSquares, showCircles, extraWhitePadding] = getChessboardSettings();
 
     chessCtx.clearRect(0, 0, chessCanvas.width, chessCanvas.height);
 
@@ -293,12 +352,14 @@ function renderChessboard() {
         const [dxTable, dyTable, dzTable] = chessCanvas._undistortTable;
 
         const [R11, R12, R13, R21, R22, R23, R31, R32, R33] = eulerAnglesToRotationMatrix(rx_cw, ry_cw, rz_cw);
-        let x_min = center ? -(bc + 1) / 2 : -1;
-        let x_max = center ? (bc + 1) / 2 : bc;
-        let y_min = center ? -(br + 1) / 2 : -1;
-        let y_max = center ? (br + 1) / 2 : br;
-        x_min *= bw; x_max *= bw;
-        y_min *= bh; y_max *= bh;
+        const boardXMin = (center ? -(bc + 1) / 2 : -1) * bw;
+        const boardXMax = (center ? (bc + 1) / 2 : bc) * bw;
+        const boardYMin = (center ? -(br + 1) / 2 : -1) * bh;
+        const boardYMax = (center ? (br + 1) / 2 : br) * bh;
+        const paddedXMin = extraWhitePadding ? boardXMin - bw : boardXMin;
+        const paddedXMax = extraWhitePadding ? boardXMax + bw : boardXMax;
+        const paddedYMin = extraWhitePadding ? boardYMin - bh : boardYMin;
+        const paddedYMax = extraWhitePadding ? boardYMax + bh : boardYMax;
 
         for (let v = 0; v < height; v++) {
             for (let u = 0; u < width; u++) {
@@ -316,10 +377,15 @@ function renderChessboard() {
                     if (s > 0) {
                         const X = tx_cw + s * dwx;
                         const Y = ty_cw + s * dwy;
-                        if (X >= x_min && X <= x_max && Y >= y_min && Y <= y_max) {
-                            const xi = Math.floor((X - x_min) / bw);
-                            const yi = Math.floor((Y - y_min) / bh);
-                            const color = ((xi + yi) % 2 === 0) ? 255 : 0;
+                        if (X >= paddedXMin && X <= paddedXMax && Y >= paddedYMin && Y <= paddedYMax) {
+                            const inWhitePadding = extraWhitePadding
+                                && (X < boardXMin || X > boardXMax || Y < boardYMin || Y > boardYMax);
+                            let color = 255;
+                            if (!inWhitePadding) {
+                                const xi = Math.floor((X - boardXMin) / bw);
+                                const yi = Math.floor((Y - boardYMin) / bh);
+                                color = ((xi + yi) % 2 === 0) ? 255 : 0;
+                            }
                             const pixel = idx * 4;
                             data[pixel] = color;
                             data[pixel + 1] = color;
@@ -334,10 +400,7 @@ function renderChessboard() {
     }
 
     if (showCircles) {
-        const xMin = center ? -(bc - 1) / 2 : 0;
-        const xMax = center ? bc / 2 : bc;
-        const yMin = center ? -(br - 1) / 2 : 0;
-        const yMax = center ? br / 2 : br;
+        const { xMin, xMax, yMin, yMax } = getChessboardCornerRanges(bc, br, center);
 
         for (let y = yMin; y < yMax; y++) {
             for (let x = xMin; x < xMax; x++) {

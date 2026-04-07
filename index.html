@@ -86,6 +86,11 @@
             <div class="pixel-size-row">
                 <label for="psText" title="Pixel size in micrometers per pixel (μm/px)">um/px</label>
                 <input type="text" id="psText" value="1.0" title="Set the pixel size (μm/px)">
+                <div id="efl-row" class="table-only-inline" style="display:none;">
+                    <label for="eflText" title="Current effective focal length in micrometers">EFL</label>
+                    <input type="text" id="eflText" value="" readonly title="Current effective focal length in micrometers">
+                    <span class="unit-suffix">um</span>
+                </div>
             </div>
             <div>
                 <label for="iw" title="Image width in pixels">iw</label>
@@ -173,9 +178,39 @@
             </div>
 
             <!-- Table mode textboxes -->
-            <div id="table-textboxes" style="display:none; flex-direction: row; gap: 16px; margin-top: 12px; justify-content: center; align-items: center; width: 100%;">
-                <textarea id="table-textbox-1" style="width: 110px; height: 360px; resize: vertical;"></textarea>
-                <textarea id="table-textbox-2" style="width: 110px; height: 360px; resize: vertical;"></textarea>
+            <div id="table-textboxes" style="display:none;">
+                <div class="table-textbox-col">
+                    <div class="table-textbox-header">
+                        <label id="table-x-label" for="table-x-unit">X</label>
+                        <select id="table-x-unit" title="Select the unit for X curve sample points">
+                            <option value="deg" selected>deg</option>
+                            <option value="rad">rad</option>
+                            <option value="tanθ">tanθ</option>
+                            <option value="pixel">pixel</option>
+                            <option value="um">um</option>
+                            <option value="mm">mm</option>
+                            <option value="cm">cm</option>
+                            <option value="m">m</option>
+                        </select>
+                    </div>
+                    <textarea id="table-textbox-1" readonly spellcheck="false" title="Converted X sample points from the current distortion curve"></textarea>
+                </div>
+                <div class="table-textbox-col">
+                    <div class="table-textbox-header">
+                        <label id="table-y-label" for="table-y-unit">Y</label>
+                        <select id="table-y-unit" title="Select the unit for Y curve sample points">
+                            <option value="deg" selected>deg</option>
+                            <option value="rad">rad</option>
+                            <option value="tanθ">tanθ</option>
+                            <option value="pixel">pixel</option>
+                            <option value="um">um</option>
+                            <option value="mm">mm</option>
+                            <option value="cm">cm</option>
+                            <option value="m">m</option>
+                        </select>
+                    </div>
+                    <textarea id="table-textbox-2" readonly spellcheck="false" title="Converted Y sample points from the current distortion curve"></textarea>
+                </div>
             </div>
         </div>
         <div class="column">
@@ -247,14 +282,21 @@
                 <input type="text" id="bhText" value="100" title="Set chessboard square height (mm)">
                 <input type="range" id="bh" name="bh" min="1" max="1000" value="100" title="Adjust chessboard square height (mm)">
             </div>
-            <div>
+            <div class="checkbox-metric-row">
                 <label for="showSquares" title="Show or hide chessboard squares">■□</label>
                 <input type="checkbox" id="showSquares" name="showSquares" title="Toggle chessboard squares">
+                <span id="boardSizeLabel" class="inline-metric" title="Total chessboard size from current settings">size: -</span>
             </div>
-            <div>
+            <div class="checkbox-metric-row">
                 <!-- when enabled draw filled circles at each corner after the board is rendered -->
                 <label for="showCircles" title="Show or hide chessboard circles">●●</label>
                 <input type="checkbox" id="showCircles" name="showCircles" checked="true" title="Toggle chessboard circles">
+                <span id="cornerGapLabel" class="inline-metric" title="Minimum image-space spacing between adjacent chessboard corners">min corner Δ: -</span>
+            </div>
+            <div class="checkbox-metric-row">
+                <label for="extraWhitePadding" title="Enable extra white padding around the chessboard design">pad</label>
+                <input type="checkbox" id="extraWhitePadding" name="extraWhitePadding" title="Toggle extra white padding around the chessboard design">
+                <span class="inline-metric">extra white padding</span>
             </div>
             <button id="reset" title="Reset all parameters to default values">Reset</button>
         </div>

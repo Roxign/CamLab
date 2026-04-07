@@ -3,6 +3,14 @@ const paramTab = document.getElementById('paramTab');
 const tableTab = document.getElementById('tableTab');
 const paramTableRows = ['fx-row', 'fy-row', 'cx-row', 'cy-row', 'k1-row', 'k2-row', 'p1-row', 'p2-row', 'k3-row', 'k4-row', 'k5-row', 'k6-row', 'kb-row'];
 const tableTextboxes = document.getElementById('table-textboxes');
+const tableTextbox1 = document.getElementById('table-textbox-1');
+const tableTextbox2 = document.getElementById('table-textbox-2');
+const tableXUnitSelect = document.getElementById('table-x-unit');
+const tableYUnitSelect = document.getElementById('table-y-unit');
+const tableXLabel = document.getElementById('table-x-label');
+const tableYLabel = document.getElementById('table-y-label');
+const eflRow = document.getElementById('efl-row');
+const eflText = document.getElementById('eflText');
 const distortionLabelRow = document.getElementById('distortion-label-row');
 
 const viewChessboardBtn = document.getElementById('viewChessboard');
@@ -17,6 +25,9 @@ const curveDirectionAngleSlider = document.getElementById('curveDirectionAngle')
 const curveDirectionAngleText = document.getElementById('curveDirectionAngleText');
 const curveXUnitGroup = document.getElementById('curveXUnitGroup');
 const curveYUnitGroup = document.getElementById('curveYUnitGroup');
+const boardSizeLabel = document.getElementById('boardSizeLabel');
+const cornerGapLabel = document.getElementById('cornerGapLabel');
+const extraWhitePaddingCheckbox = document.getElementById('extraWhitePadding');
 
 const curveXUnitDeg = document.getElementById('curveXUnitDeg');
 const curveXUnitRad = document.getElementById('curveXUnitRad');
@@ -50,6 +61,12 @@ let curveAxes = {
     y: null
 };
 
+curveCanvas._curveSamples = curveCanvas._curveSamples || {
+    rawSamples: [],
+    plotPoints: [],
+    fovPoint: null
+};
+
 function setupCurveAxisUI() {
     const xOptions = [curveXUnitDeg, curveXUnitRad, curveXUnitSlope, curveXUnitPixel, curveXUnitUm, curveXUnitMm, curveXUnitCm, curveXUnitM];
     const yOptions = [curveYUnitDeg, curveYUnitRad, curveYUnitSlope, curveYUnitPixel, curveYUnitUm, curveYUnitMm, curveYUnitCm, curveYUnitM];
@@ -69,6 +86,9 @@ function setupCurveAxisUI() {
             state: { unit: (yOptions.find(o => o?.checked) || curveYUnitDeg)?.value || 'deg' }
         }
     };
+
+    if (tableXUnitSelect) tableXUnitSelect.value = curveAxes.x.state.unit;
+    if (tableYUnitSelect) tableYUnitSelect.value = curveAxes.y.state.unit;
 
     curveDirectionTLBtn.addEventListener('click', () => setCurveDirectionFromPreset('TL'));
     curveDirectionTBtn.addEventListener('click', () => setCurveDirectionFromPreset('T'));
@@ -95,6 +115,12 @@ function setParamTableMode(mode) {
 
     if (distortionLabelRow) distortionLabelRow.style.display = showParam ? '' : 'none';
     if (tableTextboxes) tableTextboxes.style.display = showParam ? 'none' : 'flex';
+    if (eflRow) eflRow.style.display = showParam ? 'none' : 'inline-flex';
+
+    if (!showParam) {
+        updateEffectiveFocalLength();
+        refreshCurveChart();
+    }
 }
 
 function updateChessboardOriginTabs(mode = 'center') {
@@ -135,6 +161,29 @@ function toggleCurveUI(enabled) {
     }
 }
 
+function refreshDerivedUi() {
+    refreshCurveChart();
+    updateFovResults();
+    updateChessboardStatusLabels();
+}
+
+function refreshActiveView() {
+    if (viewChessboardBtn.classList.contains('active')) {
+        renderChessboard();
+    }
+    refreshDerivedUi();
+}
+
+function setVisualizationMode(mode = 'chessboard') {
+    const showChessboard = mode === 'chessboard';
+    toggleChessUI(showChessboard);
+    toggleCurveUI(!showChessboard);
+    if (showChessboard) {
+        renderChessboard();
+    }
+    refreshDerivedUi();
+}
+
 function updateExtrinsicModeButtons(mode = 'world2cam') {
     if (mode === 'world2cam') {
         world2camBtn.classList.add('active');
@@ -150,9 +199,8 @@ function updateExtrinsicModeButtons(mode = 'world2cam') {
 }
 
 
-function getCurveAxisValue(axisKey, slope, rayZ, focalLengthPx, pixelSizeUm) {
-    const { state } = curveAxes[axisKey];
-    const unit = state.unit;
+function getCurveAxisValue(axisKey, slope, rayZ, focalLengthPx, pixelSizeUm, unitOverride = null) {
+    const unit = unitOverride || curveAxes[axisKey]?.state.unit || 'deg';
 
     if (unit === 'rad' || unit === 'deg' || unit === 'tanθ') {
         const frontAngle = Math.atan(slope);
@@ -393,9 +441,85 @@ function updateFovResults() {
     document.getElementById('dFOVResult').textContent = dFOV.toFixed(1);
 }
 
+function formatMetricValue(value, fractionDigits = 1) {
+    if (!isFinite(value)) return '-';
+    const rounded = Math.round(value);
+    return Math.abs(value - rounded) < 1e-9 ? `${rounded}` : value.toFixed(fractionDigits);
+}
+
+function updateChessboardStatusLabels() {
+    const { totalWidth, totalHeight, minCornerGapPx } = getChessboardMetrics();
+    if (boardSizeLabel) {
+        boardSizeLabel.textContent = `size: ${formatMetricValue(totalWidth)} × ${formatMetricValue(totalHeight)}`;
+    }
+    if (cornerGapLabel) {
+        cornerGapLabel.textContent = minCornerGapPx === null
+            ? 'min corner Δ: n/a'
+            : `min corner Δ: ${formatMetricValue(minCornerGapPx)} px`;
+    }
+}
+
+function getEffectiveFocalLengthUm() {
+    const [pixelSizeUm, , , fx, fy] = getIntrinsics();
+    if (!isFinite(pixelSizeUm) || !isFinite(fx) || !isFinite(fy)) return NaN;
+    return ((fx + fy) * 0.5) * pixelSizeUm;
+}
+
+function formatCurveSampleValue(value) {
+    if (!isFinite(value)) return '';
+    const absValue = Math.abs(value);
+    if (absValue === 0) return '0';
+    if (absValue >= 1e4 || absValue < 1e-4) return value.toExponential(6);
+    const fractionDigits = absValue >= 100 ? 4 : 6;
+    return value.toFixed(fractionDigits).replace(/\.?0+$/, '');
+}
+
+function updateEffectiveFocalLength() {
+    if (!eflText) return;
+    const eflUm = getEffectiveFocalLengthUm();
+    eflText.value = isFinite(eflUm) ? formatCurveSampleValue(eflUm) : '';
+}
+
+function updateDistortionTableTextboxes() {
+    if (!tableTextbox1 || !tableTextbox2 || !tableXUnitSelect || !tableYUnitSelect) return;
+
+    const [pixelSizeUm, , , fx, fy] = getIntrinsics();
+    const xUnit = tableXUnitSelect.value || 'deg';
+    const yUnit = tableYUnitSelect.value || 'deg';
+    const rawSamples = curveCanvas._curveSamples?.rawSamples || [];
+
+    if (tableXLabel) tableXLabel.textContent = 'X';
+    if (tableYLabel) tableYLabel.textContent = 'Y';
+
+    if (!rawSamples.length) {
+        tableTextbox1.value = '';
+        tableTextbox2.value = '';
+        return;
+    }
+
+    const xValues = [];
+    const yValues = [];
+
+    rawSamples.forEach(sample => {
+        const xValue = getCurveAxisValue('x', sample.incomingSlope, sample.rayZ, fx, pixelSizeUm, xUnit);
+        const yValue = getCurveAxisValue('y', sample.distortedSlope, sample.rayZ, fy, pixelSizeUm, yUnit);
+        if (!isFinite(xValue) || !isFinite(yValue)) return;
+        xValues.push(formatCurveSampleValue(xValue));
+        yValues.push(formatCurveSampleValue(yValue));
+    });
+
+    tableTextbox1.value = xValues.join('\n');
+    tableTextbox2.value = yValues.join('\n');
+}
+
 function refreshCurveChart() {
+    updateEffectiveFocalLength();
+
     const curveChart = curveCanvas._curveChart;
-    if (!curveChart) return;
+    if (!curveChart) {
+        updateDistortionTableTextboxes();
+        return;
+    }
 
     const [pixelSizeUm, iw, ih, fx, fy, cx, cy] = getIntrinsics();
     const [k1, k2, p1, p2, k3, k4, k5, k6, fisheye] = getDistortion();
@@ -407,6 +531,7 @@ function refreshCurveChart() {
     const extraRad = 10 * Math.PI / 180;
     const maxAngleRad = Math.min(fovLimitRad + extraRad, Math.PI - 1e-6);
 
+    const rawSamples = [];
     const points = [];
     let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
     let fovPoint = null;
@@ -421,14 +546,20 @@ function refreshCurveChart() {
         const v = fy * yDist + cy;
         const inResolution = u >= 0 && u <= iw && v >= 0 && v <= ih;
         if (!inResolution) break;
+
+        const distortedSlope = Math.hypot(xDist, yDist);
+        rawSamples.push({ angleRad: angle, incomingSlope, distortedSlope, rayZ });
+
         const xValue = getCurveAxisValue('x', incomingSlope, rayZ, fx, pixelSizeUm);
-        const yValue = getCurveAxisValue('y', Math.hypot(xDist, yDist), rayZ, fy, pixelSizeUm);
+        const yValue = getCurveAxisValue('y', distortedSlope, rayZ, fy, pixelSizeUm);
         if (!isFinite(xValue) || !isFinite(yValue)) continue;
         points.push({ x: xValue, y: yValue });
         xMin = Math.min(xMin, xValue); xMax = Math.max(xMax, xValue);
         yMin = Math.min(yMin, yValue); yMax = Math.max(yMax, yValue);
         if (!fovPoint && angle + 1e-8 >= fovLimitRad) fovPoint = { x: xValue, y: yValue };
     }
+
+    curveCanvas._curveSamples = { rawSamples, plotPoints: points, fovPoint };
 
     xMin = isFinite(xMin) ? xMin : 0; xMax = isFinite(xMax) ? xMax : 1;
     yMin = isFinite(yMin) ? yMin : 0; yMax = isFinite(yMax) ? yMax : 1;
@@ -445,6 +576,7 @@ function refreshCurveChart() {
     curveChart.options.scales.y.title.text = getCurveAxisTitle('y');
     curveChart.update('none');
 
+    updateDistortionTableTextboxes();
     renderDirectionCanvas();
 }
 
@@ -556,12 +688,7 @@ function updateParameter(id, value) {
             break;
     }
 
-    if (viewChessboardBtn.classList.contains('active')) {
-        renderChessboard();
-    } else {
-        refreshCurveChart();
-    }
-    updateFovResults();
+    refreshActiveView();
 }
 
 function updateImageDimension(changedId) {
@@ -616,8 +743,7 @@ if (psTextInput) {
 
 document.getElementById('fisheye').addEventListener('input', () => {
     chessCanvas._undistortTable = null;
-    if (viewChessboardBtn.classList.contains('active')) renderChessboard(); else refreshCurveChart();
-    updateFovResults();
+    refreshActiveView();
 });
 
 // Extrinsic
@@ -658,37 +784,41 @@ function switchChessboardOrigin(targetMode) {
     syncExtrinsicsFromWorldToCamera();
     updateExtrinsicControls();
     if (viewChessboardBtn.classList.contains('active')) renderChessboard();
+    updateChessboardStatusLabels();
 }
 
 centerAtTLBtn.addEventListener('click', () => switchChessboardOrigin('tl'));
 centerAtCTBtn.addEventListener('click', () => switchChessboardOrigin('center'));
 
 document.getElementById('showSquares').addEventListener('input', () => {
-    if (viewChessboardBtn.classList.contains('active')) renderChessboard();
+    refreshActiveView();
 });
 
 document.getElementById('showCircles').addEventListener('input', () => {
-    if (viewChessboardBtn.classList.contains('active')) renderChessboard();
+    refreshActiveView();
 });
 
+if (extraWhitePaddingCheckbox) {
+    extraWhitePaddingCheckbox.addEventListener('input', () => {
+        refreshActiveView();
+    });
+}
+
 viewChessboardBtn.addEventListener('click', () => {
-    toggleChessUI(true);
-    toggleCurveUI(false);
-    renderChessboard();
-    updateFovResults();
+    setVisualizationMode('chessboard');
 });
 
 viewCurveBtn.addEventListener('click', () => {
-    toggleChessUI(false);
-    toggleCurveUI(true);
-    refreshCurveChart();
-    updateFovResults();
+    setVisualizationMode('curve');
 });
 
 setupCurveAxisUI();
 
 bindCurveAxisControls('x');
 bindCurveAxisControls('y');
+
+if (tableXUnitSelect) tableXUnitSelect.addEventListener('change', () => updateDistortionTableTextboxes());
+if (tableYUnitSelect) tableYUnitSelect.addEventListener('change', () => updateDistortionTableTextboxes());
 
 curveDirectionAngleSlider.addEventListener('input', function () {
     curveDirectionAngleText.value = this.value;
@@ -701,11 +831,7 @@ document.getElementById('reset').addEventListener('click', () => location.reload
 
 // init
 initCurveChart();
-toggleChessUI(true);
-toggleCurveUI(false);
+setVisualizationMode('chessboard');
 updateExtrinsicModeButtons('world2cam');
 updateChessboardOriginTabs('center');
 setCurveDirectionAngle(parseFloat(curveDirectionAngleSlider.value));
-
-renderChessboard();
-updateFovResults();
