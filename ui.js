@@ -5,6 +5,7 @@ const paramTableRows = ['fx-row', 'fy-row', 'cx-row', 'cy-row', 'k1-row', 'k2-ro
 const tableTextboxes = document.getElementById('table-textboxes');
 const tableTextbox1 = document.getElementById('table-textbox-1');
 const tableTextbox2 = document.getElementById('table-textbox-2');
+const curveStepDegText = document.getElementById('curveStepDegText');
 const tableXUnitSelect = document.getElementById('table-x-unit');
 const tableYUnitSelect = document.getElementById('table-y-unit');
 const tableXLabel = document.getElementById('table-x-label');
@@ -25,6 +26,7 @@ const curveDirectionAngleSlider = document.getElementById('curveDirectionAngle')
 const curveDirectionAngleText = document.getElementById('curveDirectionAngleText');
 const boardSizeLabel = document.getElementById('boardSizeLabel');
 const cornerGapLabel = document.getElementById('cornerGapLabel');
+const coverageLabel = document.getElementById('coverageLabel');
 const extraWhitePaddingCheckbox = document.getElementById('extraWhitePadding');
 const chessboardViewPanel = document.getElementById('chessboardViewPanel');
 const curveViewPanel = document.getElementById('curveViewPanel');
@@ -172,6 +174,10 @@ function updateExtrinsicModeButtons(mode = 'world2cam') {
 function getCurveAxisValue(axisKey, slope, rayZ, focalLengthPx, pixelSizeUm, unitOverride = null) {
     const unit = unitOverride || (axisKey === 'x' ? tableXUnitSelect?.value : tableYUnitSelect?.value) || 'deg';
 
+    if (unit === 'percent') {
+        return NaN;
+    }
+
     if (unit === 'rad' || unit === 'deg' || unit === 'tanθ') {
         const frontAngle = Math.atan(slope);
         const angleRad = axisKey === 'x' && rayZ < 0 ? (Math.PI - frontAngle) : frontAngle;
@@ -196,18 +202,66 @@ function getCurveAxisValue(axisKey, slope, rayZ, focalLengthPx, pixelSizeUm, uni
     }
 }
 
-const unitKind = { deg: 'angle', rad: 'angle', 'tanθ': 'angle', pixel: 'height', um: 'height', mm: 'height', cm: 'height', m: 'height' };
+function getCurvePercentValue(referenceSlope, measuredSlope, rayZ, referenceFocalLengthPx, measuredFocalLengthPx, pixelSizeUm, xUnit) {
+    const referenceValue = getCurveAxisValue('x', referenceSlope, rayZ, referenceFocalLengthPx, pixelSizeUm, xUnit);
+    const measuredValue = getCurveAxisValue('y', measuredSlope, rayZ, measuredFocalLengthPx, pixelSizeUm, xUnit);
+
+    if (!isFinite(referenceValue) || !isFinite(measuredValue)) return NaN;
+    if (Math.abs(referenceValue) < 1e-12) {
+        return Math.abs(measuredValue) < 1e-12 ? 0 : NaN;
+    }
+
+    return ((measuredValue - referenceValue) / referenceValue) * 100;
+}
+
+const unitKind = { deg: 'angle', rad: 'angle', 'tanθ': 'angle', pixel: 'height', um: 'height', mm: 'height', cm: 'height', m: 'height', percent: 'relative' };
+const curveAxisMinimumRange = {
+    deg: 1,
+    rad: 0.02,
+    'tanθ': 0.02,
+    pixel: 10,
+    um: 10,
+    mm: 0.01,
+    cm: 0.001,
+    m: 0.00001,
+    percent: 1
+};
+
+function getCurveAxisMinimumSpan(axisKey) {
+    const unit = (axisKey === 'x' ? tableXUnitSelect?.value : tableYUnitSelect?.value) || 'deg';
+    return curveAxisMinimumRange[unit] || 1;
+}
+
+function expandCurveAxisRange(minValue, maxValue, minimumSpan) {
+    if (!isFinite(minValue) || !isFinite(maxValue)) {
+        return { min: 0, max: minimumSpan };
+    }
+
+    const center = (minValue + maxValue) * 0.5;
+    const span = Math.max(maxValue - minValue, minimumSpan);
+    return {
+        min: center - span * 0.5,
+        max: center + span * 0.5
+    };
+}
 
 function getCurveAxisTitle(axisKey) {
     const unit = (axisKey === 'x' ? tableXUnitSelect?.value : tableYUnitSelect?.value) || 'deg';
     const kind = unitKind[unit] || 'height';
 
+    if (axisKey === 'y' && unit === 'percent') {
+        const xUnit = tableXUnitSelect?.value || 'deg';
+        return (xUnit === 'deg' || xUnit === 'rad')
+            ? 'relative angle change (%)'
+            : 'relative distortion (%)';
+    }
+
     const axisTitles = {
-        x: { angle: 'incoming ray', height: 'reference height' },
-        y: { angle: 'reflected ray', height: 'measured height' }
+        x: { angle: 'incoming ray', height: 'reference height', relative: 'reference change' },
+        y: { angle: 'reflected ray', height: 'measured height', relative: 'relative distortion' }
     };
 
-    return `${axisTitles[axisKey][kind]} (${unit})`;
+    return `${axisTitles[axisKey][kind]} (${unit === 'percent' ? '%' : unit})`;
 }
 
 function setCurveDirectionAngle(deg) {
@@ -408,7 +462,7 @@ function formatMetricValue(value, fractionDigits = 1) {
 }
 
 function updateChessboardStatusLabels() {
-    const { totalWidth, totalHeight, minCornerGapPx } = getChessboardMetrics();
+    const { totalWidth, totalHeight, minCornerGapPx, coverageRatio } = getChessboardMetrics();
     if (boardSizeLabel) {
         boardSizeLabel.textContent = `size: ${formatMetricValue(totalWidth)} × ${formatMetricValue(totalHeight)}`;
     }
@@ -416,6 +470,11 @@ function updateChessboardStatusLabels() {
         cornerGapLabel.textContent = minCornerGapPx === null
             ? 'min corner Δ: n/a'
             : `min corner Δ: ${formatMetricValue(minCornerGapPx)} px`;
+    }
+    if (coverageLabel) {
+        coverageLabel.textContent = isFinite(coverageRatio)
+            ? `coverage: ${formatMetricValue(coverageRatio * 100, 2)}%`
+            : 'coverage: n/a';
     }
 }
 
@@ -440,6 +499,11 @@ function updateEffectiveFocalLength() {
     eflText.value = isFinite(eflUm) ? formatCurveSampleValue(eflUm) : '';
 }
 
+function getCurveStepDegrees() {
+    const stepDeg = parseFloat(curveStepDegText?.value);
+    return isFinite(stepDeg) && stepDeg > 0 ? stepDeg : 0.1;
+}
+
 function updateDistortionTableTextboxes() {
     if (!tableTextbox1 || !tableTextbox2 || !tableXUnitSelect || !tableYUnitSelect) return;
 
@@ -462,7 +526,9 @@ function updateDistortionTableTextboxes() {
 
     rawSamples.forEach(sample => {
         const xValue = getCurveAxisValue('x', sample.incomingSlope, sample.rayZ, fx, pixelSizeUm, xUnit);
-        const yValue = getCurveAxisValue('y', sample.distortedSlope, sample.rayZ, fy, pixelSizeUm, yUnit);
+        const yValue = yUnit === 'percent'
+            ? getCurvePercentValue(sample.incomingSlope, sample.distortedSlope, sample.rayZ, fx, fy, pixelSizeUm, xUnit)
+            : getCurveAxisValue('y', sample.distortedSlope, sample.rayZ, fy, pixelSizeUm, yUnit);
         if (!isFinite(xValue) || !isFinite(yValue)) return;
         xValues.push(formatCurveSampleValue(xValue));
         yValues.push(formatCurveSampleValue(yValue));
@@ -483,7 +549,9 @@ function refreshCurveChart() {
 
     const [pixelSizeUm, iw, ih, fx, fy, cx, cy] = getIntrinsics();
     const [k1, k2, p1, p2, k3, k4, k5, k6, fisheye] = getDistortion();
-    const incomingStepDeg = 0.1;
+    const xUnit = tableXUnitSelect?.value || 'deg';
+    const yUnit = tableYUnitSelect?.value || 'deg';
+    const incomingStepDeg = getCurveStepDegrees();
     const incomingStepRad = incomingStepDeg * Math.PI / 180;
     const [rayDirX, rayDirY] = getCurveDirectionUnitVector();
 
@@ -510,8 +578,10 @@ function refreshCurveChart() {
         const distortedSlope = Math.hypot(xDist, yDist);
         rawSamples.push({ angleRad: angle, incomingSlope, distortedSlope, rayZ });
 
-        const xValue = getCurveAxisValue('x', incomingSlope, rayZ, fx, pixelSizeUm);
-        const yValue = getCurveAxisValue('y', distortedSlope, rayZ, fy, pixelSizeUm);
+        const xValue = getCurveAxisValue('x', incomingSlope, rayZ, fx, pixelSizeUm, xUnit);
+        const yValue = yUnit === 'percent'
+            ? getCurvePercentValue(incomingSlope, distortedSlope, rayZ, fx, fy, pixelSizeUm, xUnit)
+            : getCurveAxisValue('y', distortedSlope, rayZ, fy, pixelSizeUm, yUnit);
         if (!isFinite(xValue) || !isFinite(yValue)) continue;
         points.push({ x: xValue, y: yValue });
         xMin = Math.min(xMin, xValue); xMax = Math.max(xMax, xValue);
@@ -521,17 +591,17 @@ function refreshCurveChart() {
 
     curveCanvas._curveSamples = { rawSamples, plotPoints: points, fovPoint };
 
-    xMin = isFinite(xMin) ? xMin : 0; xMax = isFinite(xMax) ? xMax : 1;
-    yMin = isFinite(yMin) ? yMin : 0; yMax = isFinite(yMax) ? yMax : 1;
-    const xPad = (xMax - xMin) * 0.05 || 0.05;
-    const yPad = (yMax - yMin) * 0.1 || 0.1;
+    const xRange = expandCurveAxisRange(xMin, xMax, getCurveAxisMinimumSpan('x'));
+    const yRange = expandCurveAxisRange(yMin, yMax, getCurveAxisMinimumSpan('y'));
+    const xPad = (xRange.max - xRange.min) * 0.05;
+    const yPad = (yRange.max - yRange.min) * 0.1;
 
     curveChart.data.datasets[0].data = points;
     curveChart.data.datasets[1].data = fovPoint ? [fovPoint] : [];
-    curveChart.options.scales.x.min = xMin - xPad;
-    curveChart.options.scales.x.max = xMax + xPad;
-    curveChart.options.scales.y.min = yMin - yPad;
-    curveChart.options.scales.y.max = yMax + yPad;
+    curveChart.options.scales.x.min = xRange.min - xPad;
+    curveChart.options.scales.x.max = xRange.max + xPad;
+    curveChart.options.scales.y.min = yRange.min - yPad;
+    curveChart.options.scales.y.max = yRange.max + yPad;
     curveChart.options.scales.x.title.text = getCurveAxisTitle('x');
     curveChart.options.scales.y.title.text = getCurveAxisTitle('y');
     curveChart.update('none');
@@ -776,6 +846,7 @@ setupCurveAxisUI();
 
 if (tableXUnitSelect) tableXUnitSelect.addEventListener('change', () => refreshCurveChart());
 if (tableYUnitSelect) tableYUnitSelect.addEventListener('change', () => refreshCurveChart());
+if (curveStepDegText) curveStepDegText.addEventListener('input', () => refreshCurveChart());
 
 curveDirectionAngleSlider.addEventListener('input', function () {
     curveDirectionAngleText.value = this.value;

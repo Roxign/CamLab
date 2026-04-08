@@ -414,6 +414,27 @@ body {
     align-items: stretch;
 }
 
+.curve-step-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: sans-serif;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.curve-step-row label {
+    width: auto;
+}
+
+.curve-step-row input[type="text"] {
+    width: 52px;
+}
+
+.table-textbox-y-col {
+    padding-top: 26px;
+}
+
 .table-textbox-header {
     display: flex;
     align-items: center;

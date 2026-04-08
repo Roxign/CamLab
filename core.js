@@ -11,6 +11,7 @@ const directionCtx = directionCanvas.getContext('2d');
 
 const DIRECTION_CANVAS_MAX_WIDTH = 220;
 const DIRECTION_CANVAS_MAX_HEIGHT = 135;
+const CHESSBOARD_MASK_MAX_DIMENSION = 2048;
 
 // Extrinsics state (global)
 let rx_wc = 0, ry_wc = 0, rz_wc = 0, tx_wc = 0, ty_wc = 0, tz_wc = 1000;
@@ -64,11 +65,131 @@ function getChessboardCornerRanges(bc, br, center) {
     };
 }
 
+function getChessboardMaskCacheKey(iw, ih, fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, k5, k6, fisheye, bc, br, bw, bh, center, extraWhitePadding) {
+    return [
+        chessCanvas.width, chessCanvas.height,
+        iw, ih, fx, fy, cx, cy,
+        k1, k2, p1, p2, k3, k4, k5, k6, fisheye ? 1 : 0,
+        rx_cw, ry_cw, rz_cw, tx_cw, ty_cw, tz_cw,
+        bc, br, bw, bh, center ? 1 : 0, extraWhitePadding ? 1 : 0
+    ].map(value => Number.isFinite(value) ? Number(value).toFixed(6) : String(value)).join('|');
+}
+
+function getChessboardBoundaryCornerWorldPoints() {
+    const [bc, br, bw, bh, center] = getChessboardSettings();
+    const { xMin, xMax, yMin, yMax } = getChessboardCornerRanges(bc, br, center);
+    const xValues = [];
+    const yValues = [];
+
+    for (let x = xMin; x < xMax; x += 1) xValues.push(x);
+    for (let y = yMin; y < yMax; y += 1) yValues.push(y);
+
+    if (xValues.length === 0 || yValues.length === 0) return [];
+
+    const boundaryPoints = [];
+    const topY = yValues[0] * bh;
+    const bottomY = yValues[yValues.length - 1] * bh;
+    const leftX = xValues[0] * bw;
+    const rightX = xValues[xValues.length - 1] * bw;
+
+    for (const x of xValues) boundaryPoints.push([x * bw, topY, 0]);
+    for (let i = 1; i < yValues.length; i++) boundaryPoints.push([rightX, yValues[i] * bh, 0]);
+    if (yValues.length > 1) {
+        for (let i = xValues.length - 2; i >= 0; i--) boundaryPoints.push([xValues[i] * bw, bottomY, 0]);
+    }
+    if (xValues.length > 1) {
+        for (let i = yValues.length - 2; i > 0; i--) boundaryPoints.push([leftX, yValues[i] * bh, 0]);
+    }
+
+    return boundaryPoints;
+}
+
+function getProjectedChessboardContourPoints() {
+    const [, , , fx, fy, cx, cy] = getIntrinsics();
+    const [k1, k2, p1, p2, k3, k4, k5, k6, fisheye] = getDistortion();
+    const contourPoints = [];
+
+    for (const point3d of getChessboardBoundaryCornerWorldPoints()) {
+        const [u, v, zc] = projectPointToImage(point3d, fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
+        if (!isFinite(u) || !isFinite(v) || zc <= 0) {
+            return [];
+        }
+        contourPoints.push([u, v]);
+    }
+
+    return contourPoints;
+}
+
+function calculateChessboardMaskCoverage() {
+    const [, iw, ih, fx, fy, cx, cy] = getIntrinsics();
+    const [k1, k2, p1, p2, k3, k4, k5, k6, fisheye] = getDistortion();
+    const [bc, br, bw, bh, center, , , extraWhitePadding] = getChessboardSettings();
+
+    if (!isFinite(iw) || !isFinite(ih) || iw <= 0 || ih <= 0 || !isFinite(fx) || !isFinite(fy)) {
+        return { occupiedPixelCount: 0, totalPixels: 0, coverageRatio: NaN };
+    }
+
+    const cacheKey = getChessboardMaskCacheKey(iw, ih, fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, k5, k6, fisheye, bc, br, bw, bh, center, extraWhitePadding);
+    if (chessCanvas._maskStatsCache?.key === cacheKey) {
+        return chessCanvas._maskStatsCache.value;
+    }
+
+    const imageWidth = Math.max(1, Math.round(iw));
+    const imageHeight = Math.max(1, Math.round(ih));
+    const totalPixels = imageWidth * imageHeight;
+    const maskScale = Math.min(1, CHESSBOARD_MASK_MAX_DIMENSION / Math.max(imageWidth, imageHeight, 1));
+    const maskWidth = Math.max(1, Math.round(imageWidth * maskScale));
+    const maskHeight = Math.max(1, Math.round(imageHeight * maskScale));
+    const rasterTotalPixels = maskWidth * maskHeight;
+    const contourPoints = getProjectedChessboardContourPoints().map(([u, v]) => [u * maskScale, v * maskScale]);
+
+    if (contourPoints.length < 3 || rasterTotalPixels <= 0) {
+        const emptyValue = { occupiedPixelCount: 0, totalPixels, coverageRatio: NaN };
+        chessCanvas._maskStatsCache = { key: cacheKey, value: emptyValue };
+        return emptyValue;
+    }
+
+    const maskCanvas = document.createElement('canvas');
+    maskCanvas.width = maskWidth;
+    maskCanvas.height = maskHeight;
+    const maskCtx = maskCanvas.getContext('2d', { willReadFrequently: true });
+
+    if (!maskCtx) {
+        return { occupiedPixelCount: 0, totalPixels, coverageRatio: NaN };
+    }
+
+    maskCtx.clearRect(0, 0, maskWidth, maskHeight);
+    maskCtx.fillStyle = '#ffffff';
+    maskCtx.beginPath();
+    maskCtx.moveTo(contourPoints[0][0], contourPoints[0][1]);
+    for (let i = 1; i < contourPoints.length; i++) {
+        maskCtx.lineTo(contourPoints[i][0], contourPoints[i][1]);
+    }
+    maskCtx.closePath();
+    maskCtx.fill();
+
+    const maskData = maskCtx.getImageData(0, 0, maskWidth, maskHeight).data;
+    let occupiedMaskPixels = 0;
+    for (let i = 3; i < maskData.length; i += 4) {
+        if (maskData[i] > 0) occupiedMaskPixels += 1;
+    }
+
+    const coverageRatio = rasterTotalPixels > 0 ? occupiedMaskPixels / rasterTotalPixels : NaN;
+    const value = {
+        occupiedPixelCount: isFinite(coverageRatio) ? Math.round(coverageRatio * totalPixels) : 0,
+        totalPixels,
+        coverageRatio
+    };
+    chessCanvas._maskStatsCache = { key: cacheKey, value };
+    return value;
+}
+
 function getChessboardMetrics() {
     const [, iw, ih, fx, fy, cx, cy] = getIntrinsics();
     const [k1, k2, p1, p2, k3, k4, k5, k6, fisheye] = getDistortion();
     const [bc, br, bw, bh, center, , , extraWhitePadding] = getChessboardSettings();
     const { xMin, xMax, yMin, yMax } = getChessboardCornerRanges(bc, br, center);
+    const { coverageRatio } = calculateChessboardMaskCoverage();
 
     const totalWidth = (bc + 1 + (extraWhitePadding ? 2 : 0)) * bw;
     const totalHeight = (br + 1 + (extraWhitePadding ? 2 : 0)) * bh;
@@ -105,7 +226,8 @@ function getChessboardMetrics() {
     return {
         totalWidth,
         totalHeight,
-        minCornerGapPx: isFinite(minCornerGapPx) ? minCornerGapPx : null
+        minCornerGapPx: isFinite(minCornerGapPx) ? minCornerGapPx : null,
+        coverageRatio
     };
 }
 
@@ -190,12 +312,16 @@ function projectPoint(p3d, iw, ih, fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, k5, k
     return [u, v, zc];
 }
 
-function undistortNormalized(xDist, yDist, k1, k2, p1, p2, k3, k4, k5, k6, fisheye, maxIter = 30, eps = 1e-2) {
+function undistortNormalized(xDist, yDist, k1, k2, p1, p2, k3, k4, k5, k6, fisheye, maxIter = 30, eps = 1e-3) {
+    const dampingStep = 10.0;
+    const dampingMin = 1e-20;
+    const dampingMax = 1e20;
+
     if (fisheye) {
         const thetaDist = Math.hypot(xDist, yDist);
         if (thetaDist === 0) return [0, 0, 1];
-        let theta = Math.min(thetaDist, Math.PI - 1e-6);
-        for (let i = 0; i < maxIter; i++) {
+
+        const evaluateTheta = (theta) => {
             const t2 = theta * theta;
             const t3 = t2 * theta;
             const t4 = t2 * t2;
@@ -204,106 +330,155 @@ function undistortNormalized(xDist, yDist, k1, k2, p1, p2, k3, k4, k5, k6, fishe
             const t7 = t4 * t3;
             const t8 = t4 * t4;
             const t9 = t5 * t4;
-            const f = theta + k1 * t3 + k2 * t5 + k3 * t7 + k4 * t9 - thetaDist;
-            const df = 1 + 3 * k1 * t2 + 5 * k2 * t4 + 7 * k3 * t6 + 9 * k4 * t8;
-            if (!isFinite(df) || Math.abs(df) < 1e-14) break;
-            const step = f / df;
-            theta -= step;
-            theta = Math.max(0, Math.min(theta, Math.PI - 1e-6));
-            if (Math.abs(step) < 1e-12) break;
+            const thetaPred = theta + k1 * t3 + k2 * t5 + k3 * t7 + k4 * t9;
+            const error = thetaDist - thetaPred;
+            const jacobian = 1 + 3 * k1 * t2 + 5 * k2 * t4 + 7 * k3 * t6 + 9 * k4 * t8;
+            return { error, cost: error * error, jacobian };
+        };
+
+        let theta = Math.min(thetaDist, Math.PI - 1e-6);
+        let damping = 1e-3;
+        let state = evaluateTheta(theta);
+
+        for (let iter = 0; iter < maxIter; iter++) {
+            if (!isFinite(state.cost) || !isFinite(state.jacobian)) break;
+
+            let H = state.jacobian * state.jacobian;
+            H = H < 1e-12 ? H + damping : H + H * damping;
+            if (!isFinite(H) || Math.abs(H) < 1e-20) {
+                damping = Math.min(damping * dampingStep, dampingMax);
+                if (damping >= dampingMax) break;
+                continue;
+            }
+
+            const delta = (state.jacobian * state.error) / H;
+            if (!isFinite(delta)) {
+                damping = Math.min(damping * dampingStep, dampingMax);
+                if (damping >= dampingMax) break;
+                continue;
+            }
+
+            const thetaCandidate = Math.max(0, Math.min(theta + delta, Math.PI - 1e-6));
+            const nextState = evaluateTheta(thetaCandidate);
+
+            if (nextState.cost < state.cost) {
+                const step2 = delta * delta;
+                theta = thetaCandidate;
+                state = nextState;
+                damping = Math.max(damping / dampingStep, dampingMin);
+                if (step2 < 1e-12) break;
+            } else {
+                damping = Math.min(damping * dampingStep, dampingMax);
+                if (damping >= dampingMax) break;
+            }
         }
+
         const z = theta > Math.PI * 0.5 ? -1 : 1;
         const frontTheta = z > 0 ? theta : (Math.PI - theta);
         const r = Math.tan(frontTheta);
         const scale = r / thetaDist;
         return [xDist * scale, yDist * scale, z];
-    }
+    } else {
+        const evaluatePerspective = (x, y) => {
+            const r2 = x * x + y * y;
+            const r4 = r2 * r2;
+            const r6 = r4 * r2;
 
-    let x = xDist, y = yDist;
-    let out = applyDistortion(x, y, 1, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
-    let r0 = out[0] - xDist, r1 = out[1] - yDist;
-    let cost = r0 * r0 + r1 * r1;
-    let lambda = 1e-3;
-    const maxLambda = 1e16;
+            const A = 1 + k1 * r2 + k2 * r4 + k3 * r6;
+            const B = 1 + k4 * r2 + k5 * r4 + k6 * r6;
+            const invB = Math.abs(B) > 1e-12 ? 1 / B : 1;
+            const factor = A * invB;
 
-    for (let iter = 0; iter < maxIter; ++iter) {
-        const r2 = x * x + y * y;
-        const r4 = r2 * r2;
-        const r6 = r4 * r2;
-        const N = 1 + k1 * r2 + k2 * r4 + k3 * r6;
-        const D = 1 + k4 * r2 + k5 * r4 + k6 * r6;
-        const Np = k1 + 2 * k2 * r2 + 3 * k3 * r4;
-        const Dp = k4 + 2 * k5 * r2 + 3 * k6 * r4;
-        const dradial_dr2 = (Np * D - N * Dp) / (D * D);
-        const radial = N / D;
-        const dradial_dx = dradial_dr2 * 2 * x;
-        const dradial_dy = dradial_dr2 * 2 * y;
-        const dtx_dx = 2 * p1 * y + 6 * p2 * x;
-        const dtx_dy = 2 * p1 * x + 2 * p2 * y;
-        const dty_dx = 2 * p1 * x + 2 * p2 * y;
-        const dty_dy = 6 * p1 * y + 2 * p2 * x;
+            const xPred = x * factor + 2 * p1 * x * y + p2 * (r2 + 2 * x * x);
+            const yPred = y * factor + p1 * (r2 + 2 * y * y) + 2 * p2 * x * y;
+            const ex = xDist - xPred;
+            const ey = yDist - yPred;
 
-        const J00 = radial + x * dradial_dx + dtx_dx;
-        const J01 = x * dradial_dy + dtx_dy;
-        const J10 = y * dradial_dx + dty_dx;
-        const J11 = radial + y * dradial_dy + dty_dy;
+            const dA_dx = x * (2 * k1 + 4 * k2 * r2 + 6 * k3 * r4);
+            const dA_dy = y * (2 * k1 + 4 * k2 * r2 + 6 * k3 * r4);
+            const dB_dx = x * (2 * k4 + 4 * k5 * r2 + 6 * k6 * r4);
+            const dB_dy = y * (2 * k4 + 4 * k5 * r2 + 6 * k6 * r4);
 
-        const JTJ00 = J00 * J00 + J10 * J10;
-        const JTJ01 = J00 * J01 + J10 * J11;
-        const JTJ11 = J01 * J01 + J11 * J11;
-        const JTr0 = J00 * r0 + J10 * r1;
-        const JTr1 = J01 * r0 + J11 * r1;
+            const invB2 = invB * invB;
+            const dfactor_dx = (dA_dx * B - A * dB_dx) * invB2;
+            const dfactor_dy = (dA_dy * B - A * dB_dy) * invB2;
 
-        const H00 = JTJ00 * (1 + lambda);
-        const H01 = JTJ01;
-        const H10 = JTJ01;
-        const H11 = JTJ11 * (1 + lambda);
+            const J00 = factor + x * dfactor_dx + 2 * p1 * y + 6 * p2 * x;
+            const J01 = x * dfactor_dy + 2 * p1 * x + 2 * p2 * y;
+            const J10 = y * dfactor_dx + 2 * p1 * x + 2 * p2 * y;
+            const J11 = factor + y * dfactor_dy + 6 * p1 * y + 2 * p2 * x;
 
-        let dx, dy;
-        {
-            let a00 = H00, a01 = H01, a10 = H10, a11 = H11;
-            let b0 = -JTr0, b1 = -JTr1;
-            let det = a00 * a11 - a01 * a10;
-            if (Math.abs(det) > 1e-24) {
-                const inv = 1.0 / det;
-                dx = (a11 * b0 - a01 * b1) * inv;
-                dy = (-a10 * b0 + a00 * b1) * inv;
-            } else {
-                const reg = 1e-8;
-                a00 += reg; a11 += reg;
-                det = a00 * a11 - a01 * a10;
-                if (Math.abs(det) < 1e-30) { dx = 0; dy = 0; }
-                else {
-                    const inv = 1.0 / det;
-                    dx = (a11 * b0 - a01 * b1) * inv;
-                    dy = (-a10 * b0 + a00 * b1) * inv;
+            return {
+                ex,
+                ey,
+                cost: ex * ex + ey * ey,
+                J00,
+                J01,
+                J10,
+                J11
+            };
+        };
+
+        let x = xDist;
+        let y = yDist;
+        let damping = 1e-3;
+        let state = evaluatePerspective(x, y);
+
+        for (let iter = 0; iter < maxIter; ++iter) {
+            if (!isFinite(state.cost)) break;
+
+            const JTJ00 = state.J00 * state.J00 + state.J10 * state.J10;
+            const JTJ01 = state.J00 * state.J01 + state.J10 * state.J11;
+            const JTJ11 = state.J01 * state.J01 + state.J11 * state.J11;
+            const JTe0 = state.J00 * state.ex + state.J10 * state.ey;
+            const JTe1 = state.J01 * state.ex + state.J11 * state.ey;
+
+            let H00 = JTJ00 < 1e-12 ? JTJ00 + damping : JTJ00 + JTJ00 * damping;
+            const H01 = JTJ01;
+            const H10 = JTJ01;
+            let H11 = JTJ11 < 1e-12 ? JTJ11 + damping : JTJ11 + JTJ11 * damping;
+
+            let det = H00 * H11 - H01 * H10;
+            if (!isFinite(det) || Math.abs(det) < 1e-24) {
+                H00 += damping;
+                H11 += damping;
+                det = H00 * H11 - H01 * H10;
+                if (!isFinite(det) || Math.abs(det) < 1e-30) {
+                    damping = Math.min(damping * dampingStep, dampingMax);
+                    if (damping >= dampingMax) break;
+                    continue;
                 }
+            }
+
+            const invDet = 1.0 / det;
+            const dx = (H11 * JTe0 - H01 * JTe1) * invDet;
+            const dy = (-H10 * JTe0 + H00 * JTe1) * invDet;
+
+            if (!isFinite(dx) || !isFinite(dy) || Math.abs(dx) > 1e6 || Math.abs(dy) > 1e6) {
+                damping = Math.min(damping * dampingStep, dampingMax);
+                if (damping >= dampingMax) break;
+                continue;
+            }
+
+            const xCandidate = x + dx;
+            const yCandidate = y + dy;
+            const nextState = evaluatePerspective(xCandidate, yCandidate);
+
+            if (nextState.cost < state.cost) {
+                const stepNorm2 = dx * dx + dy * dy;
+                x = xCandidate;
+                y = yCandidate;
+                state = nextState;
+                damping = Math.max(damping / dampingStep, dampingMin);
+                if (stepNorm2 < eps) break;
+            } else {
+                damping = Math.min(damping * dampingStep, dampingMax);
+                if (damping >= dampingMax) break;
             }
         }
 
-        if (!isFinite(dx) || !isFinite(dy) || Math.abs(dx) > 1e6 || Math.abs(dy) > 1e6) {
-            lambda = Math.min(lambda * 10, maxLambda);
-            if (lambda >= maxLambda) break;
-            continue;
-        }
-
-        const xT = x + dx, yT = y + dy;
-        out = applyDistortion(xT, yT, 1, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
-        const r0t = out[0] - xDist, r1t = out[1] - yDist;
-        const costT = r0t * r0t + r1t * r1t;
-
-        if (costT < cost) {
-            x = xT; y = yT; r0 = r0t; r1 = r1t;
-            cost = costT;
-            lambda = Math.max(lambda * 0.1, 1e-16);
-            if (dx * dx + dy * dy < eps) break;
-        } else {
-            lambda = Math.min(lambda * 10, maxLambda);
-            if (lambda >= maxLambda) break;
-        }
+        return [x, y, 1];
     }
-
-    return [x, y, 1];
 }
 
 function updateUndistortTable(iw, ih, fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, k5, k6, fisheye) {
@@ -396,6 +571,7 @@ function renderChessboard() {
                 }
             }
         }
+
         chessCtx.putImageData(img, 0, 0);
     }
 

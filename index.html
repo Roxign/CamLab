@@ -202,6 +202,9 @@
                         <div class="checkbox-metric-row">
                             <span id="cornerGapLabel" class="inline-metric metric-bold" title="Minimum image-space spacing between adjacent chessboard corners">min corner Δ: -</span>
                         </div>
+                        <div class="checkbox-metric-row">
+                            <span id="coverageLabel" class="inline-metric metric-bold" title="Average value of the binary chessboard mask over the image">coverage: -</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -251,6 +254,11 @@
                     <div class="curve-table-panel">
                         <div id="table-textboxes" style="display:none;">
                             <div class="table-textbox-col">
+                                <div class="curve-step-row">
+                                    <label for="curveStepDegText" title="Set the incoming-angle sampling step in degrees">step</label>
+                                    <input type="text" id="curveStepDegText" value="0.1" title="Set the incoming-angle sampling step in degrees">
+                                    <span class="unit-suffix">deg</span>
+                                </div>
                                 <div class="table-textbox-header">
                                     <label id="table-x-label" for="table-x-unit">X</label>
                                     <select id="table-x-unit" title="Select the unit for X curve sample points">
@@ -266,7 +274,7 @@
                                 </div>
                                 <textarea id="table-textbox-1" readonly spellcheck="false" title="Converted X sample points from the current distortion curve"></textarea>
                             </div>
-                            <div class="table-textbox-col">
+                            <div class="table-textbox-col table-textbox-y-col">
                                 <div class="table-textbox-header">
                                     <label id="table-y-label" for="table-y-unit">Y</label>
                                     <select id="table-y-unit" title="Select the unit for Y curve sample points">
@@ -278,6 +286,7 @@
                                         <option value="mm">mm</option>
                                         <option value="cm">cm</option>
                                         <option value="m">m</option>
+                                        <option value="percent">%</option>
                                     </select>
                                 </div>
                                 <textarea id="table-textbox-2" readonly spellcheck="false" title="Converted Y sample points from the current distortion curve"></textarea>
