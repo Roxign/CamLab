@@ -13,18 +13,27 @@
         <div class="column control-panel intrinsic-panel">
             <div class="intrinsic-header-row">
                 <label style="font-family: 'sans-serif'; font-weight: bold; font-size: 20px;">Intrinsic:</label>
-                <div class="param-table-tab-row tab-strip-hidden" role="tablist" aria-label="Param/Table tabs">
-                    <button id="paramTab" type="button" role="tab" aria-selected="true" class="active" title="Show parameter controls">Param</button>
-                    <button id="tableTab" type="button" role="tab" aria-selected="false" title="Show table mode">Table</button>
+                <div class="param-table-tab-row" role="tablist" aria-label="Intrinsic input source tabs">
+                    <button id="paramTab" type="button" role="tab" aria-selected="true" class="active" title="Show direct parameter controls">from param</button>
+                    <button id="tableTab" type="button" role="tab" aria-selected="false" title="Show table-based input controls">from table</button>
+                </div>
+            </div>
+            <div class="pixel-size-row intrinsic-meta-row">
+                <label for="psText" title="Pixel size in micrometers per pixel (μm/px)">um/px</label>
+                <input type="text" id="psText" value="1.0" title="Set the pixel size (μm/px)">
+                <div id="efl-row" class="table-only-inline">
+                    <label for="eflText" title="Current effective focal length in micrometers">EFL</label>
+                    <input type="text" id="eflText" value="1000" readonly title="Current effective focal length in micrometers">
+                    <span class="unit-suffix">um</span>
                 </div>
             </div>
             <div>
-                <label for="iw" title="Image width in pixels">iw</label>
+                <label for="iw" title="Image width in pixels">i<sub>w</sub></label>
                 <input type="text" id="iwText" value="1920" title="Set image width (pixels)">
                 <input type="range" id="iw" name="iw" min="100" max="10000" value="1920" title="Adjust image width (pixels)">
             </div>
             <div>
-                <label for="ih" title="Image height in pixels">ih</label>
+                <label for="ih" title="Image height in pixels">i<sub>h</sub></label>
                 <input type="text" id="ihText" value="1080" title="Set image height (pixels)">
                 <input type="range" id="ih" name="ih" min="100" max="10000" value="1080" title="Adjust image height (pixels)">
             </div>
@@ -56,45 +65,100 @@
                 <label for="k1" title="Radial distortion coefficient k₁">k<sub>1</sub></label>
                 <input type="text" id="k1Text" value="0" title="Set k₁ (radial distortion)">
                 <input type="range" id="k1" name="k1" min="-1" max="1" value="0" step="0.01" title="Adjust k₁ (radial distortion)">
+                <span id="fitSlotK1" class="fit-inline-slot"><div id="fitK1Row" class="intrinsic-fit-checkbox-row"><label for="fitK1">k<sub>1</sub></label><input type="checkbox" id="fitK1" checked></div></span>
             </div>
             <div id="k2-row">
                 <label for="k2" title="Radial distortion coefficient k₂">k<sub>2</sub></label>
                 <input type="text" id="k2Text" value="0" title="Set k₂ (radial distortion)">
                 <input type="range" id="k2" name="k2" min="-1" max="1" value="0" step="0.01" title="Adjust k₂ (radial distortion)">
+                <span id="fitSlotK2" class="fit-inline-slot"><div id="fitK2Row" class="intrinsic-fit-checkbox-row"><label for="fitK2">k<sub>2</sub></label><input type="checkbox" id="fitK2" checked></div></span>
             </div>
             <div id="p1-row">
                 <label for="p1" title="Tangential distortion coefficient p₁">p<sub>1</sub></label>
                 <input type="text" id="p1Text" value="0" title="Set p₁ (tangential distortion)">
                 <input type="range" id="p1" name="p1" min="-1" max="1" value="0" step="0.01" title="Adjust p₁ (tangential distortion)">
+                <span class="fit-inline-slot fit-inline-slot-empty" aria-hidden="true"></span>
             </div>
             <div id="p2-row">
                 <label for="p2" title="Tangential distortion coefficient p₂">p<sub>2</sub></label>
                 <input type="text" id="p2Text" value="0" title="Set p₂ (tangential distortion)">
                 <input type="range" id="p2" name="p2" min="-1" max="1" value="0" step="0.01" title="Adjust p₂ (tangential distortion)">
+                <span class="fit-inline-slot fit-inline-slot-empty" aria-hidden="true"></span>
             </div>
             <div id="k3-row">
                 <label for="k3" title="Radial distortion coefficient k₃">k<sub>3</sub></label>
                 <input type="text" id="k3Text" value="0" title="Set k₃ (radial distortion)">
                 <input type="range" id="k3" name="k3" min="-1" max="1" value="0" step="0.01" title="Adjust k₃ (radial distortion)">
+                <span id="fitSlotK3" class="fit-inline-slot"><div id="fitK3Row" class="intrinsic-fit-checkbox-row"><label for="fitK3">k<sub>3</sub></label><input type="checkbox" id="fitK3" checked></div></span>
             </div>
             <div id="k4-row">
                 <label for="k4" title="Radial distortion coefficient k₄">k<sub>4</sub></label>
                 <input type="text" id="k4Text" value="0" title="Set k₄ (radial distortion)">
                 <input type="range" id="k4" name="k4" min="-1" max="1" value="0" step="0.01" title="Adjust k₄ (radial distortion)">
+                <span id="fitSlotK4" class="fit-inline-slot"><div id="fitK4Row" class="intrinsic-fit-checkbox-row"><label for="fitK4">k<sub>4</sub></label><input type="checkbox" id="fitK4" checked></div></span>
             </div>
             <div id="k5-row">
                 <label for="k5" title="Radial distortion coefficient k₅">k<sub>5</sub></label>
                 <input type="text" id="k5Text" value="0" title="Set k₅ (radial distortion)">
                 <input type="range" id="k5" name="k5" min="-1" max="1" value="0" step="0.01" title="Adjust k₅ (radial distortion)">
+                <span id="fitSlotK5" class="fit-inline-slot"><div id="fitK5Row" class="intrinsic-fit-checkbox-row"><label for="fitK5">k<sub>5</sub></label><input type="checkbox" id="fitK5" checked></div></span>
             </div>
             <div id="k6-row">
                 <label for="k6" title="Radial distortion coefficient k₆">k<sub>6</sub></label>
                 <input type="text" id="k6Text" value="0" title="Set k₆ (radial distortion)">
                 <input type="range" id="k6" name="k6" min="-1" max="1" value="0" step="0.01" title="Adjust k₆ (radial distortion)">
+                <span id="fitSlotK6" class="fit-inline-slot"><div id="fitK6Row" class="intrinsic-fit-checkbox-row"><label for="fitK6">k<sub>6</sub></label><input type="checkbox" id="fitK6" checked></div></span>
             </div>
             <div id="kb-row">
                 <label for="fisheye" title="Enable Kannala-Brandt (KB) fisheye distortion model">KB</label>
                 <input type="checkbox" id="fisheye" name="fisheye" title="Toggle KB fisheye distortion model">
+                <span id="fitSlotKB" class="fit-inline-slot"><div id="fitKBRow" class="intrinsic-fit-checkbox-row"><label for="fitKB">KB</label><input type="checkbox" id="fitKB"></div></span>
+            </div>
+            <div id="intrinsicTablePanel" class="intrinsic-table-panel hidden">
+                <div class="intrinsic-table-title-row">
+                    <label style="font-family: 'sans-serif'; font-weight: bold; font-size: 20px;">Distortion Table:</label>
+                </div>
+                <div class="intrinsic-table-layout">
+                    <div class="table-textbox-col">
+                        <div class="table-textbox-header">
+                            <label for="intrinsicTableXUnit">X</label>
+                            <select id="intrinsicTableXUnit" title="Select the unit for X table input">
+                                <option value="deg" selected>deg</option>
+                                <option value="rad">rad</option>
+                                <option value="tanθ">tanθ</option>
+                                <option value="pixel">pixel</option>
+                                <option value="um">um</option>
+                                <option value="mm">mm</option>
+                                <option value="cm">cm</option>
+                                <option value="m">m</option>
+                            </select>
+                        </div>
+                        <textarea id="intrinsicTableXText" spellcheck="false" title="Enter X table samples, one value per line" placeholder="-60&#10;-30&#10;0&#10;30&#10;60"></textarea>
+                    </div>
+                    <div class="table-textbox-col">
+                        <div class="table-textbox-header">
+                            <label for="intrinsicTableYUnit">Y</label>
+                            <select id="intrinsicTableYUnit" title="Select the unit for Y table input">
+                                <option value="deg" selected>deg</option>
+                                <option value="rad">rad</option>
+                                <option value="tanθ">tanθ</option>
+                                <option value="pixel">pixel</option>
+                                <option value="um">um</option>
+                                <option value="mm">mm</option>
+                                <option value="cm">cm</option>
+                                <option value="m">m</option>
+                                <option value="percent">%</option>
+                            </select>
+                        </div>
+                        <textarea id="intrinsicTableYText" spellcheck="false" title="Enter Y table samples, one value per line" placeholder="-55&#10;-27&#10;0&#10;27&#10;55"></textarea>
+                    </div>
+                    <div id="fitCheckboxBridge" class="fit-bridge-panel hidden" aria-label="Distortion fit parameter selection">
+                        <div class="intrinsic-fit-checkbox-col bridge-fit-checkbox-col">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="fov-row" class="checkbox-metric-row intrinsic-fov-row">
                 <span id="fovResultsRow" style="display: flex; gap: 0.4em;">
                     <span class="axis-fov">hFOV: <span id="hFOVResult">-</span>°</span>
                     <span class="axis-fov">vFOV: <span id="vFOVResult">-</span>°</span>
@@ -119,6 +183,16 @@
                     </div>
 
                     <div class="column control-panel options-panel">
+                        <div id="chessIntrinsicSourceRow" class="radio-metric-row mode-radio-row">
+                            <label id="chessInputIntrinsicOption" for="chessInputIntrinsic">
+                                <input type="radio" id="chessInputIntrinsic" name="chessIntrinsicSource" checked>
+                                input intrinsic
+                            </label>
+                            <label for="chessOutputIntrinsic">
+                                <input type="radio" id="chessOutputIntrinsic" name="chessIntrinsicSource">
+                                output intrinsic
+                            </label>
+                        </div>
                         <div class="extrinsic-header-row">
                             <label style="font-family: 'sans-serif'; font-weight: bold; font-size: 20px;">Extrinsic:</label>
                             <div class="extrinsic-mode-row" role="tablist" aria-label="Extrinsic transform mode tabs">
@@ -153,8 +227,8 @@
                         </div>
                         <div>
                             <label for="tz" title="Translation along z-axis (mm)">t<sub>z</sub></label>
-                            <input type="text" id="tzText" value="1000" title="Set translation z (mm)">
-                            <input type="range" id="tz" name="tz" min="-10000" max="10000" value="1000" title="Adjust translation z (mm)">
+                            <input type="text" id="tzText" value="1200" title="Set translation z (mm)">
+                            <input type="range" id="tz" name="tz" min="-10000" max="10000" value="1200" title="Adjust translation z (mm)">
                         </div>
 
                         <div class="chessboard-header-row">
@@ -186,15 +260,15 @@
                         </div>
                         <div class="checkbox-metric-row">
                             <label for="showSquares" title="Show or hide chessboard squares">■□</label>
-                            <input type="checkbox" id="showSquares" name="showSquares" title="Toggle chessboard squares">
+                            <input type="checkbox" id="showSquares" name="showSquares" checked title="Toggle chessboard squares">
                         </div>
                         <div class="checkbox-metric-row">
                             <label for="showCircles" title="Show or hide chessboard circles">●●</label>
-                            <input type="checkbox" id="showCircles" name="showCircles" checked="true" title="Toggle chessboard circles">
+                            <input type="checkbox" id="showCircles" name="showCircles" title="Toggle chessboard circles">
                         </div>
                         <div class="checkbox-metric-row">
                             <label for="extraWhitePadding" title="Enable extra white padding around the chessboard design">pad</label>
-                            <input type="checkbox" id="extraWhitePadding" name="extraWhitePadding" title="Toggle extra white padding around the chessboard design">
+                            <input type="checkbox" id="extraWhitePadding" name="extraWhitePadding" checked title="Toggle extra white padding around the chessboard design">
                         </div>
                         <div class="checkbox-metric-row">
                             <span id="boardSizeLabel" class="inline-metric metric-bold" title="Total chessboard size from current settings">size: -</span>
@@ -212,15 +286,6 @@
             <div id="curveViewPanel" class="workspace-mode-panel hidden">
                 <div class="mode-layout curve-mode-layout">
                     <div class="column curve-main-column">
-                        <div class="pixel-size-row curve-meta-row">
-                            <label for="psText" title="Pixel size in micrometers per pixel (μm/px)">um/px</label>
-                            <input type="text" id="psText" value="1.0" title="Set the pixel size (μm/px)">
-                            <div id="efl-row" class="table-only-inline" style="display:none;">
-                                <label for="eflText" title="Current effective focal length in micrometers">EFL</label>
-                                <input type="text" id="eflText" value="" readonly title="Current effective focal length in micrometers">
-                                <span class="unit-suffix">um</span>
-                            </div>
-                        </div>
                         <canvas id="curveCanvas" class="hidden" width="640" height="480"></canvas>
                         <div class="curve-axis-options hidden" id="curveAxisOptions">
                             <div class="curve-direction-row" id="curveDirectionControls">
@@ -252,44 +317,90 @@
                     </div>
 
                     <div class="curve-table-panel">
-                        <div id="table-textboxes" style="display:none;">
-                            <div class="table-textbox-col">
-                                <div class="curve-step-row">
-                                    <label for="curveStepDegText" title="Set the incoming-angle sampling step in degrees">step</label>
-                                    <input type="text" id="curveStepDegText" value="0.1" title="Set the incoming-angle sampling step in degrees">
-                                    <span class="unit-suffix">deg</span>
+                        <div class="curve-step-row curve-table-step-row">
+                            <label for="curveStepDegText" title="Set the incoming-angle sampling step in degrees">step</label>
+                            <input type="text" id="curveStepDegText" value="0.1" title="Set the incoming-angle sampling step in degrees">
+                            <span class="unit-suffix">deg</span>
+                        </div>
+                        <div class="checkbox-metric-row curve-visibility-row" aria-label="Curve visibility controls">
+                            <label class="curve-visibility-option" for="showBeforeFitCurve">
+                                <input type="checkbox" id="showBeforeFitCurve" checked title="Toggle the before-fit distortion curve">
+                                before fit
+                            </label>
+                            <label class="curve-visibility-option" for="showAfterFitCurve">
+                                <input type="checkbox" id="showAfterFitCurve" checked title="Toggle the after-fit distortion curve">
+                                after fit
+                            </label>
+                        </div>
+                        <div class="radio-metric-row curve-output-source-row mode-radio-row" aria-label="Curve output source controls">
+                            <label for="curveOutputBeforeFit">
+                                <input type="radio" id="curveOutputBeforeFit" name="curveOutputSource">
+                                before fit
+                            </label>
+                            <label for="curveOutputAfterFit">
+                                <input type="radio" id="curveOutputAfterFit" name="curveOutputSource" checked>
+                                after fit <span id="afterFitRmsText"></span>
+                            </label>
+                        </div>
+                        <div class="param-table-tab-row curve-output-tab-row" role="tablist" aria-label="Curve output tabs">
+                            <button id="curveToParamTab" type="button" role="tab" aria-selected="true" class="active" title="Show parameter output">to param</button>
+                            <button id="curveToTableTab" type="button" role="tab" aria-selected="false" title="Show table output">to table</button>
+                        </div>
+                        <div class="curve-output-layout">
+                            <div class="curve-output-stack">
+                                <div id="curveParamOutputPanel">
+                                    <div id="curve-param-textboxes" class="curve-output-textboxes">
+                                        <div class="table-textbox-col">
+                                            <div class="table-textbox-header">
+                                                <label for="curve-param-names">Param</label>
+                                            </div>
+                                            <textarea id="curve-param-names" readonly spellcheck="false" title="Current parameter names for the distortion curve"></textarea>
+                                        </div>
+                                        <div class="table-textbox-col">
+                                            <div class="table-textbox-header">
+                                                <label for="curve-param-values">Value</label>
+                                            </div>
+                                            <textarea id="curve-param-values" readonly spellcheck="false" title="Current parameter values for the distortion curve"></textarea>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="table-textbox-header">
-                                    <label id="table-x-label" for="table-x-unit">X</label>
-                                    <select id="table-x-unit" title="Select the unit for X curve sample points">
-                                        <option value="deg" selected>deg</option>
-                                        <option value="rad">rad</option>
-                                        <option value="tanθ">tanθ</option>
-                                        <option value="pixel">pixel</option>
-                                        <option value="um">um</option>
-                                        <option value="mm">mm</option>
-                                        <option value="cm">cm</option>
-                                        <option value="m">m</option>
-                                    </select>
+                                <div id="curveTableOutputPanel" class="hidden">
+                                    <div id="table-textboxes" class="curve-output-textboxes">
+                                        <div class="table-textbox-col">
+                                            <div class="table-textbox-header">
+                                                <label id="table-x-label" for="table-x-unit">X</label>
+                                                <select id="table-x-unit" title="Select the unit for X curve sample points">
+                                                    <option value="deg" selected>deg</option>
+                                                    <option value="rad">rad</option>
+                                                    <option value="tanθ">tanθ</option>
+                                                    <option value="pixel">pixel</option>
+                                                    <option value="um">um</option>
+                                                    <option value="mm">mm</option>
+                                                    <option value="cm">cm</option>
+                                                    <option value="m">m</option>
+                                                </select>
+                                            </div>
+                                            <textarea id="table-textbox-1" readonly spellcheck="false" title="Converted X sample points from the current distortion curve"></textarea>
+                                        </div>
+                                        <div class="table-textbox-col">
+                                            <div class="table-textbox-header">
+                                                <label id="table-y-label" for="table-y-unit">Y</label>
+                                                <select id="table-y-unit" title="Select the unit for Y curve sample points">
+                                                    <option value="deg" selected>deg</option>
+                                                    <option value="rad">rad</option>
+                                                    <option value="tanθ">tanθ</option>
+                                                    <option value="pixel">pixel</option>
+                                                    <option value="um">um</option>
+                                                    <option value="mm">mm</option>
+                                                    <option value="cm">cm</option>
+                                                    <option value="m">m</option>
+                                                    <option value="percent">%</option>
+                                                </select>
+                                            </div>
+                                            <textarea id="table-textbox-2" readonly spellcheck="false" title="Converted Y sample points from the current distortion curve"></textarea>
+                                        </div>
+                                    </div>
                                 </div>
-                                <textarea id="table-textbox-1" readonly spellcheck="false" title="Converted X sample points from the current distortion curve"></textarea>
-                            </div>
-                            <div class="table-textbox-col table-textbox-y-col">
-                                <div class="table-textbox-header">
-                                    <label id="table-y-label" for="table-y-unit">Y</label>
-                                    <select id="table-y-unit" title="Select the unit for Y curve sample points">
-                                        <option value="deg" selected>deg</option>
-                                        <option value="rad">rad</option>
-                                        <option value="tanθ">tanθ</option>
-                                        <option value="pixel">pixel</option>
-                                        <option value="um">um</option>
-                                        <option value="mm">mm</option>
-                                        <option value="cm">cm</option>
-                                        <option value="m">m</option>
-                                        <option value="percent">%</option>
-                                    </select>
-                                </div>
-                                <textarea id="table-textbox-2" readonly spellcheck="false" title="Converted Y sample points from the current distortion curve"></textarea>
                             </div>
                         </div>
                     </div>

@@ -14,41 +14,82 @@ const DIRECTION_CANVAS_MAX_HEIGHT = 135;
 const CHESSBOARD_MASK_MAX_DIMENSION = 2048;
 
 // Extrinsics state (global)
-let rx_wc = 0, ry_wc = 0, rz_wc = 0, tx_wc = 0, ty_wc = 0, tz_wc = 1000;
-let rx_cw = 0, ry_cw = 0, rz_cw = 0, tx_cw = 0, ty_cw = 0, tz_cw = -1000;
+let rx_wc = 0, ry_wc = 0, rz_wc = 0, tx_wc = 0, ty_wc = 0, tz_wc = 1200;
+let rx_cw = 0, ry_cw = 0, rz_cw = 0, tx_cw = 0, ty_cw = 0, tz_cw = -1200;
+
+function getNumericControlValue(id) {
+    const textControl = document.getElementById(`${id}Text`);
+    if (textControl) {
+        const textValue = parseFloat(textControl.value);
+        if (Number.isFinite(textValue)) {
+            return textValue;
+        }
+    }
+
+    const control = document.getElementById(id);
+    if (!control) {
+        return NaN;
+    }
+
+    const controlValue = parseFloat(control.value);
+    return Number.isFinite(controlValue) ? controlValue : NaN;
+}
 
 function getIntrinsics() {
     return [
-        parseFloat(document.getElementById('psText').value),
-        parseFloat(document.getElementById('iw').value),
-        parseFloat(document.getElementById('ih').value),
-        parseFloat(document.getElementById('fx').value),
-        parseFloat(document.getElementById('fy').value),
-        parseFloat(document.getElementById('cx').value),
-        parseFloat(document.getElementById('cy').value)
+        getNumericControlValue('ps'),
+        getNumericControlValue('iw'),
+        getNumericControlValue('ih'),
+        getNumericControlValue('fx'),
+        getNumericControlValue('fy'),
+        getNumericControlValue('cx'),
+        getNumericControlValue('cy')
     ];
 }
 
 function getDistortion() {
     return [
-        parseFloat(document.getElementById('k1').value),
-        parseFloat(document.getElementById('k2').value),
-        parseFloat(document.getElementById('p1').value),
-        parseFloat(document.getElementById('p2').value),
-        parseFloat(document.getElementById('k3').value),
-        parseFloat(document.getElementById('k4').value),
-        parseFloat(document.getElementById('k5').value),
-        parseFloat(document.getElementById('k6').value),
+        getNumericControlValue('k1'),
+        getNumericControlValue('k2'),
+        getNumericControlValue('p1'),
+        getNumericControlValue('p2'),
+        getNumericControlValue('k3'),
+        getNumericControlValue('k4'),
+        getNumericControlValue('k5'),
+        getNumericControlValue('k6'),
         document.getElementById('fisheye').checked
     ];
 }
 
+function getChessboardViewCameraModel() {
+    const intrinsics = tableTab?.classList.contains('active') && typeof getTableConversionIntrinsics === 'function'
+        ? getTableConversionIntrinsics()
+        : getIntrinsics();
+    const distortion = getDistortion();
+    const outputRadio = document.getElementById('chessOutputIntrinsic');
+    const useOutput = !!outputRadio?.checked;
+    const refitResult = curveCanvas?._curveSamples?.refitResult;
+
+    if (useOutput && refitResult?.params?.length >= 8) {
+        return {
+            intrinsics,
+            distortion: [
+                refitResult.params[0], refitResult.params[1], refitResult.params[2], refitResult.params[3],
+                refitResult.params[4], refitResult.params[5], refitResult.params[6], refitResult.params[7],
+                !!refitResult.fisheye
+            ]
+        };
+    }
+
+    return { intrinsics, distortion };
+}
+
 function getChessboardSettings() {
     return [
-        parseFloat(document.getElementById('bc').value),
-        parseFloat(document.getElementById('br').value),
-        parseFloat(document.getElementById('bw').value),
-        parseFloat(document.getElementById('bh').value),
+        getNumericControlValue('bc'),
+        getNumericControlValue('br'),
+        getNumericControlValue('bw'),
+        getNumericControlValue('bh'),
         document.getElementById('centerAtCenter').classList.contains('active'),
         document.getElementById('showSquares').checked,
         document.getElementById('showCircles').checked,
@@ -105,8 +146,9 @@ function getChessboardBoundaryCornerWorldPoints() {
 }
 
 function getProjectedChessboardContourPoints() {
-    const [, , , fx, fy, cx, cy] = getIntrinsics();
-    const [k1, k2, p1, p2, k3, k4, k5, k6, fisheye] = getDistortion();
+    const { intrinsics, distortion } = getChessboardViewCameraModel();
+    const [, , , fx, fy, cx, cy] = intrinsics;
+    const [k1, k2, p1, p2, k3, k4, k5, k6, fisheye] = distortion;
     const contourPoints = [];
 
     for (const point3d of getChessboardBoundaryCornerWorldPoints()) {
@@ -121,8 +163,9 @@ function getProjectedChessboardContourPoints() {
 }
 
 function calculateChessboardMaskCoverage() {
-    const [, iw, ih, fx, fy, cx, cy] = getIntrinsics();
-    const [k1, k2, p1, p2, k3, k4, k5, k6, fisheye] = getDistortion();
+    const { intrinsics, distortion } = getChessboardViewCameraModel();
+    const [, iw, ih, fx, fy, cx, cy] = intrinsics;
+    const [k1, k2, p1, p2, k3, k4, k5, k6, fisheye] = distortion;
     const [bc, br, bw, bh, center, , , extraWhitePadding] = getChessboardSettings();
 
     if (!isFinite(iw) || !isFinite(ih) || iw <= 0 || ih <= 0 || !isFinite(fx) || !isFinite(fy)) {
@@ -185,8 +228,9 @@ function calculateChessboardMaskCoverage() {
 }
 
 function getChessboardMetrics() {
-    const [, iw, ih, fx, fy, cx, cy] = getIntrinsics();
-    const [k1, k2, p1, p2, k3, k4, k5, k6, fisheye] = getDistortion();
+    const { intrinsics, distortion } = getChessboardViewCameraModel();
+    const [, iw, ih, fx, fy, cx, cy] = intrinsics;
+    const [k1, k2, p1, p2, k3, k4, k5, k6, fisheye] = distortion;
     const [bc, br, bw, bh, center, , , extraWhitePadding] = getChessboardSettings();
     const { xMin, xMax, yMin, yMax } = getChessboardCornerRanges(bc, br, center);
     const { coverageRatio } = calculateChessboardMaskCoverage();
@@ -288,6 +332,372 @@ function applyDistortion(xc, yc, zc, k1, k2, p1, p2, k3, k4, k5, k6, fisheye) {
     }
 
     return [xp, yp];
+}
+
+function convertCurveValueToSlope(value, unit, focalLengthPx, pixelSizeUm, effectiveFocalLengthUm = null) {
+    if (!isFinite(value)) return NaN;
+
+    const pixelPitchUm = isFinite(pixelSizeUm) && pixelSizeUm > 0 ? pixelSizeUm : NaN;
+    const focalLengthUm = isFinite(effectiveFocalLengthUm) && effectiveFocalLengthUm > 0
+        ? effectiveFocalLengthUm
+        : (isFinite(pixelPitchUm) && isFinite(focalLengthPx) && Math.abs(focalLengthPx) > 1e-12
+            ? focalLengthPx * pixelPitchUm
+            : NaN);
+
+    switch (unit) {
+        case 'deg':
+            return Math.tan(value * Math.PI / 180);
+        case 'rad':
+            return Math.tan(value);
+        case 'tanθ':
+            return value;
+        case 'pixel':
+            return isFinite(pixelPitchUm) && isFinite(focalLengthUm) ? (value * pixelPitchUm) / focalLengthUm : NaN;
+        case 'um':
+            return isFinite(focalLengthUm) ? value / focalLengthUm : NaN;
+        case 'mm': {
+            const valueUm = value * 1e3;
+            return isFinite(focalLengthUm) ? valueUm / focalLengthUm : NaN;
+        }
+        case 'cm': {
+            const valueUm = value * 1e4;
+            return isFinite(focalLengthUm) ? valueUm / focalLengthUm : NaN;
+        }
+        case 'm': {
+            const valueUm = value * 1e6;
+            return isFinite(focalLengthUm) ? valueUm / focalLengthUm : NaN;
+        }
+        default:
+            return NaN;
+    }
+}
+
+function convertSlopeToCurveValue(slope, unit, focalLengthPx, pixelSizeUm, effectiveFocalLengthUm = null) {
+    if (!isFinite(slope)) return NaN;
+
+    const pixelPitchUm = isFinite(pixelSizeUm) && pixelSizeUm > 0 ? pixelSizeUm : NaN;
+    const focalLengthUm = isFinite(effectiveFocalLengthUm) && effectiveFocalLengthUm > 0
+        ? effectiveFocalLengthUm
+        : (isFinite(pixelPitchUm) && isFinite(focalLengthPx) && Math.abs(focalLengthPx) > 1e-12
+            ? focalLengthPx * pixelPitchUm
+            : NaN);
+
+    switch (unit) {
+        case 'deg':
+            return Math.atan(slope) * 180 / Math.PI;
+        case 'rad':
+            return Math.atan(slope);
+        case 'tanθ':
+            return slope;
+        case 'pixel':
+            return isFinite(pixelPitchUm) && isFinite(focalLengthUm) ? (slope * focalLengthUm) / pixelPitchUm : NaN;
+        case 'um':
+            return isFinite(focalLengthUm) ? slope * focalLengthUm : NaN;
+        case 'mm': {
+            return isFinite(focalLengthUm) ? (slope * focalLengthUm) / 1e3 : NaN;
+        }
+        case 'cm': {
+            return isFinite(focalLengthUm) ? (slope * focalLengthUm) / 1e4 : NaN;
+        }
+        case 'm': {
+            return isFinite(focalLengthUm) ? (slope * focalLengthUm) / 1e6 : NaN;
+        }
+        default:
+            return NaN;
+    }
+}
+
+function convertCurveTableSampleToSlopes(xValue, yValue, unit, fx, pixelSizeUm, effectiveFocalLengthUm = null) {
+    const incomingSlope = convertCurveValueToSlope(xValue, unit, fx, pixelSizeUm, effectiveFocalLengthUm);
+    if (!isFinite(incomingSlope)) return null;
+
+    const distortedSlope = convertCurveValueToSlope(yValue, unit, fx, pixelSizeUm, effectiveFocalLengthUm);
+    if (!isFinite(distortedSlope)) return null;
+    return { incomingSlope, distortedSlope };
+}
+
+// Fits rational distortion k1..k6 from a radial table of (rIn, rOut) slope pairs.
+// Implements the Huber-weighted 1-D LM algorithm from table2param::FitRationalDistortionLM.
+// rInArray / rOutArray must already be abs-filtered (center-point removal done by the caller).
+// Returns denormalized OpenCV-ordered params [k1,k2,0,0,k3,k4,k5,k6], or null on failure.
+function fitDistortionFromRadialTable(rInArray, rOutArray, maxIter = 100) {
+    const n = rInArray.length;
+    if (n < 6) return null;
+
+    let rScale = 0;
+    for (let i = 0; i < n; i++) if (rInArray[i] > rScale) rScale = rInArray[i];
+    if (rScale < 1e-14) return null;
+
+    const t = rInArray.map(r => r / rScale);
+    const sObs = rInArray.map((r, i) => rOutArray[i] / r);
+
+    let k = [0, 0, 0, 0, 0, 0];
+    let lambda = 1e-3;
+    let prevSSE = 1e300;
+
+    for (let iter = 0; iter < maxIter; iter++) {
+        // First pass: residuals and SSE for Huber threshold
+        const res = new Array(n);
+        let sse = 0;
+        let valid = true;
+        for (let i = 0; i < n; i++) {
+            const t2 = t[i] * t[i], t4 = t2 * t2, t6 = t4 * t2;
+            const A = 1 + k[0] * t2 + k[1] * t4 + k[2] * t6;
+            const B = 1 + k[3] * t2 + k[4] * t4 + k[5] * t6;
+            if (Math.abs(B) < 1e-14) { valid = false; break; }
+            const pred = A / B;
+            res[i] = pred - sObs[i];
+            sse += res[i] * res[i];
+        }
+        if (!valid) return null;
+
+        const huberC = 1.345 * (Math.sqrt(sse / n) + 1e-12);
+
+        // Second pass: weighted normal equations
+        const H = Array.from({ length: 6 }, () => new Array(6).fill(0));
+        const g = new Array(6).fill(0);
+        for (let i = 0; i < n; i++) {
+            const t2 = t[i] * t[i], t4 = t2 * t2, t6 = t4 * t2;
+            const A = 1 + k[0] * t2 + k[1] * t4 + k[2] * t6;
+            const B = 1 + k[3] * t2 + k[4] * t4 + k[5] * t6;
+            if (Math.abs(B) < 1e-14) { valid = false; break; }
+            const invB = 1 / B, invB2 = invB * invB;
+            const ae = Math.abs(res[i]);
+            const w = ae <= huberC ? 1 : huberC / ae;
+            const j = [t2 * invB, t4 * invB, t6 * invB, -A * t2 * invB2, -A * t4 * invB2, -A * t6 * invB2];
+            for (let r = 0; r < 6; r++) {
+                g[r] += w * j[r] * res[i];
+                for (let ci = r; ci < 6; ci++) H[r][ci] += w * j[r] * j[ci];
+            }
+        }
+        if (!valid) return null;
+
+        // Fill lower triangle
+        for (let r = 0; r < 6; r++)
+            for (let ci = 0; ci < r; ci++) H[r][ci] = H[ci][r];
+
+        // LM damping: H[d][d] += lambda * max(|H[d][d]|, 1)
+        for (let d = 0; d < 6; d++)
+            H[d][d] += lambda * Math.max(Math.abs(H[d][d]), 1);
+
+        const delta = solveLinearSystem(H, g.map(v => -v));
+        if (!delta) {
+            lambda = Math.min(lambda * 10, 1e20);
+            if (lambda > 1e19) break;
+            continue;
+        }
+
+        const stepNorm = delta.reduce((s, v) => s + v * v, 0);
+        if (stepNorm < 1e-24) break;
+
+        const kt = k.map((ki, idx) => ki + delta[idx]);
+
+        let trialSSE = 0, trialValid = true;
+        for (let i = 0; i < n; i++) {
+            const t2 = t[i] * t[i], t4 = t2 * t2, t6 = t4 * t2;
+            const A = 1 + kt[0] * t2 + kt[1] * t4 + kt[2] * t6;
+            const B = 1 + kt[3] * t2 + kt[4] * t4 + kt[5] * t6;
+            if (Math.abs(B) < 1e-14) { trialValid = false; break; }
+            const e = A / B - sObs[i];
+            trialSSE += e * e;
+        }
+        if (!trialValid) {
+            lambda = Math.min(lambda * 10, 1e20);
+            if (lambda > 1e19) break;
+            continue;
+        }
+
+        if (trialSSE < prevSSE) {
+            k = kt;
+            prevSSE = trialSSE;
+            lambda = Math.max(lambda * 0.1, 1e-20);
+            if (Math.sqrt(stepNorm) < 1e-10) break;
+        } else {
+            lambda = Math.min(lambda * 10, 1e20);
+            if (lambda > 1e19) break;
+        }
+    }
+
+    // Denormalize: fitted k[i] are in terms of t = r/rScale; convert to use r directly.
+    // K_num[i] = k[i] / rScale^(2*(i+1)), K_den[i] = k[i+3] / rScale^(2*(i+1))
+    const rs2 = rScale * rScale, rs4 = rs2 * rs2, rs6 = rs4 * rs2;
+    // OpenCV order: [k1, k2, p1, p2, k3, k4, k5, k6]
+    return [k[0] / rs2, k[1] / rs4, 0, 0, k[2] / rs6, k[3] / rs2, k[4] / rs4, k[5] / rs6];
+}
+
+function solveLinearSystem(matrix, rhs) {
+    const size = Array.isArray(matrix) ? matrix.length : 0;
+    if (!size || size !== rhs.length) return null;
+
+    const augmented = matrix.map((row, rowIndex) => row.slice(0, size).concat(rhs[rowIndex]));
+
+    for (let col = 0; col < size; col++) {
+        let pivotRow = col;
+        for (let row = col + 1; row < size; row++) {
+            if (Math.abs(augmented[row][col]) > Math.abs(augmented[pivotRow][col])) {
+                pivotRow = row;
+            }
+        }
+
+        const pivotValue = augmented[pivotRow][col];
+        if (!isFinite(pivotValue) || Math.abs(pivotValue) < 1e-15) return null;
+
+        if (pivotRow !== col) {
+            [augmented[col], augmented[pivotRow]] = [augmented[pivotRow], augmented[col]];
+        }
+
+        for (let j = col; j <= size; j++) {
+            augmented[col][j] /= pivotValue;
+        }
+
+        for (let row = 0; row < size; row++) {
+            if (row === col) continue;
+            const factor = augmented[row][col];
+            if (!isFinite(factor) || Math.abs(factor) < 1e-20) continue;
+            for (let j = col; j <= size; j++) {
+                augmented[row][j] -= factor * augmented[col][j];
+            }
+        }
+    }
+
+    return augmented.map(row => row[size]);
+}
+
+function evaluateCurveSampleFitError(samples, params, fisheye) {
+    let totalError = 0;
+
+    for (const sample of samples) {
+        const [xPred, yPred] = applyDistortion(
+            sample.xu, sample.yu, sample.rayZ,
+            params[0], params[1], params[2], params[3],
+            params[4], params[5], params[6], params[7],
+            fisheye
+        );
+
+        if (!isFinite(xPred) || !isFinite(yPred)) return Infinity;
+
+        const dx = xPred - sample.xDist;
+        const dy = yPred - sample.yDist;
+        totalError += dx * dx + dy * dy;
+    }
+
+    return totalError;
+}
+
+function fitDistortionFromCurveSamples(samples, options = {}) {
+    const fitMask = Array.isArray(options.fitMask) ? options.fitMask.slice(0, 8) : Array(8).fill(true);
+    const useFisheye = !!options.useFisheye;
+    const sourceFisheye = !!options.sourceFisheye;
+    const initialParams = Array.isArray(options.initialParams) ? options.initialParams.slice(0, 8) : Array(8).fill(0);
+    const fittedParams = Array(8).fill(0);
+
+    if (!Array.isArray(samples) || !samples.length) {
+        return { params: fittedParams, fisheye: useFisheye, error: NaN };
+    }
+
+    const effectiveMask = fitMask.map(Boolean);
+    if (useFisheye) {
+        effectiveMask[2] = false;
+        effectiveMask[3] = false;
+        effectiveMask[6] = false;
+        effectiveMask[7] = false;
+    }
+
+    const activeIndices = effectiveMask
+        .map((enabled, index) => enabled ? index : -1)
+        .filter(index => index >= 0);
+
+    if (useFisheye === sourceFisheye) {
+        activeIndices.forEach(index => {
+            fittedParams[index] = Number.isFinite(initialParams[index]) ? initialParams[index] : 0;
+        });
+    }
+
+    if (!activeIndices.length) {
+        return { params: fittedParams, fisheye: useFisheye, error: 0 };
+    }
+
+    let currentParams = fittedParams.slice();
+    let currentError = evaluateCurveSampleFitError(samples, currentParams, useFisheye);
+    let damping = 1e-3;
+
+    for (let iter = 0; iter < 24; iter++) {
+        const dimension = activeIndices.length;
+        const normal = Array.from({ length: dimension }, () => Array(dimension).fill(0));
+        const rhs = Array(dimension).fill(0);
+
+        for (const sample of samples) {
+            const [baseX, baseY] = applyDistortion(
+                sample.xu, sample.yu, sample.rayZ,
+                currentParams[0], currentParams[1], currentParams[2], currentParams[3],
+                currentParams[4], currentParams[5], currentParams[6], currentParams[7],
+                useFisheye
+            );
+            if (!isFinite(baseX) || !isFinite(baseY)) {
+                currentError = Infinity;
+                break;
+            }
+
+            const residualX = baseX - sample.xDist;
+            const residualY = baseY - sample.yDist;
+            const jacobian = activeIndices.map(index => {
+                const delta = 1e-4 * Math.max(1, Math.abs(currentParams[index]));
+                const trialParams = currentParams.slice();
+                trialParams[index] += delta;
+                const [trialX, trialY] = applyDistortion(
+                    sample.xu, sample.yu, sample.rayZ,
+                    trialParams[0], trialParams[1], trialParams[2], trialParams[3],
+                    trialParams[4], trialParams[5], trialParams[6], trialParams[7],
+                    useFisheye
+                );
+                return [
+                    isFinite(trialX) ? (trialX - baseX) / delta : 0,
+                    isFinite(trialY) ? (trialY - baseY) / delta : 0
+                ];
+            });
+
+            for (let row = 0; row < dimension; row++) {
+                const [jx, jy] = jacobian[row];
+                rhs[row] -= jx * residualX + jy * residualY;
+                for (let col = row; col < dimension; col++) {
+                    const [kx, ky] = jacobian[col];
+                    normal[row][col] += jx * kx + jy * ky;
+                }
+            }
+        }
+
+        if (!isFinite(currentError)) break;
+
+        for (let row = 0; row < activeIndices.length; row++) {
+            for (let col = 0; col < row; col++) {
+                normal[row][col] = normal[col][row];
+            }
+            normal[row][row] += damping * Math.max(1, normal[row][row]);
+        }
+
+        const deltaVector = solveLinearSystem(normal, rhs);
+        if (!deltaVector) break;
+
+        const candidateParams = currentParams.slice();
+        let stepNorm = 0;
+        activeIndices.forEach((paramIndex, deltaIndex) => {
+            const delta = deltaVector[deltaIndex];
+            candidateParams[paramIndex] += delta;
+            stepNorm += delta * delta;
+        });
+
+        const candidateError = evaluateCurveSampleFitError(samples, candidateParams, useFisheye);
+        if (isFinite(candidateError) && candidateError < currentError) {
+            currentParams = candidateParams;
+            currentError = candidateError;
+            damping = Math.max(damping * 0.5, 1e-6);
+            if (stepNorm < 1e-18) break;
+        } else {
+            damping = Math.min(damping * 4, 1e6);
+        }
+    }
+
+    return { params: currentParams, fisheye: useFisheye, error: currentError };
 }
 
 function projectPointToImage(p3d, fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, k5, k6, fisheye) {
@@ -509,8 +919,9 @@ function updateUndistortTable(iw, ih, fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, k5
 }
 
 function renderChessboard() {
-    const [, iw, ih, fx, fy, cx, cy] = getIntrinsics();
-    const [k1, k2, p1, p2, k3, k4, k5, k6, fisheye] = getDistortion();
+    const { intrinsics, distortion } = getChessboardViewCameraModel();
+    const [, iw, ih, fx, fy, cx, cy] = intrinsics;
+    const [k1, k2, p1, p2, k3, k4, k5, k6, fisheye] = distortion;
     const [bc, br, bw, bh, center, showSquares, showCircles, extraWhitePadding] = getChessboardSettings();
 
     chessCtx.clearRect(0, 0, chessCanvas.width, chessCanvas.height);
@@ -521,8 +932,16 @@ function renderChessboard() {
         const img = chessCtx.getImageData(0, 0, width, height);
         const data = img.data;
 
-        if (!chessCanvas._undistortTable) {
+        const undistortKey = [
+            chessCanvas.width, chessCanvas.height,
+            iw, ih, fx, fy, cx, cy,
+            k1, k2, p1, p2, k3, k4, k5, k6,
+            fisheye ? 1 : 0
+        ].map(value => Number.isFinite(value) ? Number(value).toFixed(6) : String(value)).join('|');
+
+        if (!chessCanvas._undistortTable || chessCanvas._undistortTableKey !== undistortKey) {
             chessCanvas._undistortTable = updateUndistortTable(iw, ih, fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
+            chessCanvas._undistortTableKey = undistortKey;
         }
         const [dxTable, dyTable, dzTable] = chessCanvas._undistortTable;
 
@@ -591,9 +1010,9 @@ function renderChessboard() {
     }
 }
 
-function findFovLimit(rayDirX, rayDirY, incomingStepDeg = 0.09) {
-    const [pixelSizeUm, iw, ih, fx, fy, cx, cy] = getIntrinsics();
-    const [k1, k2, p1, p2, k3, k4, k5, k6, fisheye] = getDistortion();
+function findFovLimit(rayDirX, rayDirY, incomingStepDeg = 0.09, intrinsicsOverride = null, distortionOverride = null) {
+    const [pixelSizeUm, iw, ih, fx, fy, cx, cy] = intrinsicsOverride || getIntrinsics();
+    const [k1, k2, p1, p2, k3, k4, k5, k6, fisheye] = distortionOverride || getDistortion();
 
     const norm = Math.hypot(rayDirX, rayDirY);
     const dirX = norm === 0 ? 1 : rayDirX / norm;

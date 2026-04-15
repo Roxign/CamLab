@@ -131,7 +131,11 @@ body {
     box-sizing: border-box;
 }
 
-.intrinsic-panel,
+.intrinsic-panel {
+    width: 372px;
+    position: relative;
+}
+
 .options-panel {
     width: 320px;
 }
@@ -159,6 +163,10 @@ body {
     font-family: sans-serif;
     font-size: 13px;
     text-align: center;
+}
+
+.param-table-tab-row button {
+    min-width: 88px;
 }
 
 .view-tab-row button {
@@ -348,6 +356,33 @@ body {
     flex-wrap: wrap;
 }
 
+.radio-metric-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: nowrap;
+    font-family: sans-serif;
+    font-size: 12px;
+}
+
+.radio-metric-row label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    width: auto;
+    white-space: nowrap;
+}
+
+.mode-radio-row {
+    font-family: sans-serif;
+    font-size: 12px;
+}
+
+.mode-radio-row label {
+    font-family: inherit;
+    font-size: inherit;
+}
+
 .controls .checkbox-metric-row label,
 .control-panel .checkbox-metric-row label {
     width: 28px;
@@ -369,6 +404,16 @@ body {
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
+}
+
+.intrinsic-meta-row {
+    margin-top: 2px;
+    margin-bottom: 2px;
+}
+
+.intrinsic-meta-row label,
+.intrinsic-meta-row .unit-suffix {
+    font-family: monospace;
 }
 
 .pixel-size-row label {
@@ -394,17 +439,22 @@ body {
 }
 
 .unit-suffix {
-    font-family: sans-serif;
     min-width: 18px;
 }
 
-#table-textboxes {
+.curve-output-textboxes {
+    display: flex;
     flex-direction: row;
-    gap: 16px;
+    gap: 10px;
     margin-top: 0;
     justify-content: flex-start;
     align-items: stretch;
     width: auto;
+}
+
+.curve-output-textboxes .table-textbox-col {
+    flex: 1 1 0;
+    min-width: 0;
 }
 
 .table-textbox-col {
@@ -421,6 +471,52 @@ body {
     font-family: sans-serif;
     font-size: 12px;
     font-weight: bold;
+}
+
+.curve-table-step-row {
+    margin-bottom: 8px;
+}
+
+.curve-visibility-row {
+    margin-bottom: 8px;
+    font-family: sans-serif;
+    font-size: 12px;
+    font-weight: bold;
+    gap: 12px;
+}
+
+.curve-visibility-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    width: auto;
+    white-space: nowrap;
+}
+
+.curve-visibility-option input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+}
+
+.curve-output-source-row {
+    margin-bottom: 8px;
+    gap: 12px;
+}
+
+.curve-output-source-row input[type="radio"] {
+    width: 14px;
+    height: 14px;
+    margin: 0;
+}
+
+.radio-option-dim {
+    opacity: 0.45;
+}
+
+.curve-output-tab-row {
+    margin-left: 0;
+    margin-bottom: 8px;
 }
 
 .curve-step-row label {
@@ -453,13 +549,157 @@ body {
     width: 92px;
 }
 
-#table-textboxes textarea {
-    width: 120px;
-    height: 430px;
+.curve-output-textboxes textarea {
+    width: 112px;
+    height: 410px;
     resize: vertical;
+    box-sizing: border-box;
     font-family: Consolas, 'Courier New', monospace;
     font-size: 12px;
     line-height: 1.35;
+}
+
+#curveTableOutputPanel .table-textbox-header {
+    width: 112px;
+    box-sizing: border-box;
+}
+
+#curveTableOutputPanel .table-textbox-header select {
+    width: 58px;
+}
+
+.intrinsic-table-panel {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.intrinsic-table-title-row {
+    margin: 4px 0 8px;
+    white-space: nowrap;
+}
+
+.intrinsic-table-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: start;
+    width: 100%;
+}
+
+.intrinsic-table-panel .table-textbox-col {
+    min-width: 0;
+}
+
+.intrinsic-table-panel .table-textbox-header label {
+    width: auto;
+}
+
+.intrinsic-table-panel .table-textbox-header select {
+    width: 70px;
+}
+
+.intrinsic-table-panel textarea {
+    width: 100%;
+    height: 390px;
+    resize: vertical;
+    box-sizing: border-box;
+    font-family: Consolas, 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.intrinsic-fit-checkbox-col {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 52px;
+    padding-top: 24px;
+    font-size: inherit;
+}
+
+.fit-bridge-panel {
+    margin-top: 24px;
+}
+
+.bridge-fit-checkbox-col {
+    padding-top: 0;
+    gap: 10px;
+}
+
+.bridge-fit-checkbox-col .intrinsic-fit-checkbox-row {
+    min-height: 20px;
+}
+
+#k1-row,
+#k2-row,
+#p1-row,
+#p2-row,
+#k3-row,
+#k4-row,
+#k5-row,
+#k6-row,
+#kb-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.fit-inline-slot {
+    display: inline-flex;
+    align-items: center;
+    margin-left: auto;
+    min-width: 52px;
+    justify-content: flex-end;
+    vertical-align: middle;
+}
+
+.fit-inline-slot-empty {
+    visibility: hidden;
+}
+
+.fit-inline-slot .intrinsic-fit-checkbox-row {
+    gap: 4px;
+}
+
+.fit-inline-slot .intrinsic-fit-checkbox-row label {
+    display: inline-block;
+}
+
+.curve-output-layout {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    align-items: stretch;
+}
+
+.curve-output-stack {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.intrinsic-fit-checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.intrinsic-fit-checkbox-row label {
+    display: inline-block;
+    width: 15px;
+    margin-right: 0;
+    font-family: monospace;
+}
+
+.intrinsic-fit-checkbox-col input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    margin-left: 0;
+    vertical-align: middle;
+}
+
+.intrinsic-fov-row {
+    margin-top: 4px;
 }
 
 canvas {

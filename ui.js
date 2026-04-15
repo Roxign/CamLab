@@ -10,6 +10,18 @@ const tableXUnitSelect = document.getElementById('table-x-unit');
 const tableYUnitSelect = document.getElementById('table-y-unit');
 const tableXLabel = document.getElementById('table-x-label');
 const tableYLabel = document.getElementById('table-y-label');
+const curveToParamTab = document.getElementById('curveToParamTab');
+const curveToTableTab = document.getElementById('curveToTableTab');
+const curveParamOutputPanel = document.getElementById('curveParamOutputPanel');
+const curveTableOutputPanel = document.getElementById('curveTableOutputPanel');
+const curveParamNamesTextbox = document.getElementById('curve-param-names');
+const curveParamValuesTextbox = document.getElementById('curve-param-values');
+const intrinsicTableXText = document.getElementById('intrinsicTableXText');
+const intrinsicTableYText = document.getElementById('intrinsicTableYText');
+const intrinsicTableXUnitSelect = document.getElementById('intrinsicTableXUnit');
+const intrinsicTableYUnitSelect = document.getElementById('intrinsicTableYUnit');
+const fitCheckboxBridge = document.getElementById('fitCheckboxBridge');
+const intrinsicTablePanel = document.getElementById('intrinsicTablePanel');
 const eflRow = document.getElementById('efl-row');
 const eflText = document.getElementById('eflText');
 const distortionLabelRow = document.getElementById('distortion-label-row');
@@ -27,6 +39,14 @@ const curveDirectionAngleText = document.getElementById('curveDirectionAngleText
 const boardSizeLabel = document.getElementById('boardSizeLabel');
 const cornerGapLabel = document.getElementById('cornerGapLabel');
 const coverageLabel = document.getElementById('coverageLabel');
+const chessInputIntrinsicRadio = document.getElementById('chessInputIntrinsic');
+const chessOutputIntrinsicRadio = document.getElementById('chessOutputIntrinsic');
+const chessInputIntrinsicOption = document.getElementById('chessInputIntrinsicOption');
+const showBeforeFitCurveCheckbox = document.getElementById('showBeforeFitCurve');
+const showAfterFitCurveCheckbox = document.getElementById('showAfterFitCurve');
+const curveOutputBeforeFitRadio = document.getElementById('curveOutputBeforeFit');
+const curveOutputAfterFitRadio = document.getElementById('curveOutputAfterFit');
+const afterFitRmsText = document.getElementById('afterFitRmsText');
 const extraWhitePaddingCheckbox = document.getElementById('extraWhitePadding');
 const chessboardViewPanel = document.getElementById('chessboardViewPanel');
 const curveViewPanel = document.getElementById('curveViewPanel');
@@ -44,7 +64,10 @@ const curveDirectionBRBtn = document.querySelector('#curveDirectionControls butt
 curveCanvas._curveSamples = curveCanvas._curveSamples || {
     rawSamples: [],
     plotPoints: [],
-    fovPoint: null
+    fitPoints: [],
+    fovPoint: null,
+    fitFovPoint: null,
+    refitResult: null
 };
 
 function setupCurveAxisUI() {
@@ -57,6 +80,80 @@ function setupCurveAxisUI() {
     curveDirectionBLBtn.addEventListener('click', () => setCurveDirectionFromPreset('BL'));
     curveDirectionBBtn.addEventListener('click', () => setCurveDirectionFromPreset('B'));
     curveDirectionBRBtn.addEventListener('click', () => setCurveDirectionFromPreset('BR'));
+}
+
+function updateChessboardIntrinsicSourceControls() {
+    const fromParam = paramTab?.classList.contains('active');
+
+    if (chessInputIntrinsicOption) {
+        chessInputIntrinsicOption.classList.toggle('radio-option-dim', !fromParam);
+        chessInputIntrinsicOption.title = fromParam
+            ? ''
+            : 'Input intrinsic is unavailable in from table mode';
+    }
+    if (chessInputIntrinsicRadio) {
+        chessInputIntrinsicRadio.disabled = !fromParam;
+    }
+    if (chessOutputIntrinsicRadio && (!fromParam || (!chessInputIntrinsicRadio?.checked && !chessOutputIntrinsicRadio.checked))) {
+        chessOutputIntrinsicRadio.checked = true;
+    }
+    if (fromParam && chessInputIntrinsicRadio && !chessInputIntrinsicRadio.checked && !chessOutputIntrinsicRadio?.checked) {
+        chessInputIntrinsicRadio.checked = true;
+    }
+}
+
+function updateCurveOutputSourceControls() {
+    const inFromTableToParamMode = tableTab?.classList.contains('active') && curveToParamTab?.classList.contains('active');
+    const beforeFitLabel = curveOutputBeforeFitRadio?.closest('label');
+
+    if (curveOutputBeforeFitRadio) {
+        curveOutputBeforeFitRadio.disabled = inFromTableToParamMode;
+        curveOutputBeforeFitRadio.title = inFromTableToParamMode
+            ? 'Before fit is unavailable in from table to param mode'
+            : 'Use pre-fit output';
+    }
+    if (beforeFitLabel) {
+        beforeFitLabel.classList.toggle('radio-option-dim', inFromTableToParamMode);
+    }
+
+    if (inFromTableToParamMode && curveOutputBeforeFitRadio?.checked && curveOutputAfterFitRadio) {
+        curveOutputAfterFitRadio.checked = true;
+    }
+}
+
+function syncFitCheckboxBridge() {
+    if (!fitCheckboxBridge) return;
+
+    const showParam = paramTab?.classList.contains('active');
+    const fitRowMappings = [
+        ['fitK1Row', 'fitSlotK1'],
+        ['fitK2Row', 'fitSlotK2'],
+        ['fitK3Row', 'fitSlotK3'],
+        ['fitK4Row', 'fitSlotK4'],
+        ['fitK5Row', 'fitSlotK5'],
+        ['fitK6Row', 'fitSlotK6'],
+        ['fitKBRow', 'fitSlotKB']
+    ];
+
+    if (showParam) {
+        fitCheckboxBridge.classList.add('hidden');
+        fitRowMappings.forEach(([rowId, slotId]) => {
+            const row = document.getElementById(rowId);
+            const slot = document.getElementById(slotId);
+            if (row && slot && row.parentElement !== slot) {
+                slot.appendChild(row);
+            }
+        });
+    } else {
+        fitCheckboxBridge.classList.remove('hidden');
+        const bridgeColumn = fitCheckboxBridge.querySelector('.bridge-fit-checkbox-col') || fitCheckboxBridge;
+        fitRowMappings.forEach(([rowId]) => {
+            const row = document.getElementById(rowId);
+            if (row && row.parentElement !== bridgeColumn) {
+                bridgeColumn.appendChild(row);
+            }
+        });
+    }
 }
 
 function setParamTableMode(mode) {
@@ -78,12 +175,46 @@ function setParamTableMode(mode) {
     }
 
     if (distortionLabelRow) distortionLabelRow.style.display = showParam ? '' : 'none';
-    if (tableTextboxes) tableTextboxes.style.display = curveModeVisible ? 'flex' : 'none';
-    if (eflRow) eflRow.style.display = curveModeVisible ? 'inline-flex' : 'none';
+    if (intrinsicTablePanel) intrinsicTablePanel.classList.toggle('hidden', showParam);
+    if (eflRow) eflRow.style.display = showParam ? 'none' : 'inline-flex';
+    updateChessboardIntrinsicSourceControls();
+    if (eflText) {
+        eflText.readOnly = false;
+        eflText.title = 'Enter effective focal length in micrometers';
+    }
+
+    syncFitCheckboxBridge();
+    updateCurveOutputSourceControls();
+    updateEffectiveFocalLength();
 
     if (curveModeVisible) {
-        updateEffectiveFocalLength();
         refreshCurveChart();
+    } else {
+        refreshActiveView();
+    }
+}
+
+function setCurveOutputMode(mode = 'param') {
+    const showParam = mode === 'param';
+
+    if (curveToParamTab) {
+        curveToParamTab.classList.toggle('active', showParam);
+        curveToParamTab.setAttribute('aria-selected', showParam ? 'true' : 'false');
+    }
+    if (curveToTableTab) {
+        curveToTableTab.classList.toggle('active', !showParam);
+        curveToTableTab.setAttribute('aria-selected', showParam ? 'false' : 'true');
+    }
+    if (curveParamOutputPanel) curveParamOutputPanel.classList.toggle('hidden', !showParam);
+    if (curveTableOutputPanel) curveTableOutputPanel.classList.toggle('hidden', showParam);
+    updateCurveOutputSourceControls();
+
+    if (viewCurveBtn?.classList.contains('active')) {
+        refreshCurveChart();
+    } else if (showParam) {
+        updateCurveParamTextboxes();
+    } else {
+        updateDistortionTableTextboxes();
     }
 }
 
@@ -114,22 +245,21 @@ function toggleCurveUI(enabled) {
     viewCurveBtn.classList.toggle('active', enabled);
     viewCurveBtn.setAttribute('aria-selected', enabled ? 'true' : 'false');
     if (curveViewPanel) curveViewPanel.classList.toggle('hidden', !enabled);
+    syncFitCheckboxBridge();
     if (enabled) {
         viewChessboardBtn.classList.remove('active');
         viewChessboardBtn.setAttribute('aria-selected', 'false');
         curveAxisOptions.classList.remove('hidden');
         curveCanvas.classList.remove('hidden');
         curveCanvas.style.display = 'block';
-        if (tableTextboxes) tableTextboxes.style.display = 'flex';
-        if (eflRow) eflRow.style.display = 'inline-flex';
         updateEffectiveFocalLength();
+        updateCurveParamTextboxes();
         updateDistortionTableTextboxes();
+        setCurveOutputMode(curveToTableTab?.classList.contains('active') ? 'table' : 'param');
     } else {
         curveAxisOptions.classList.add('hidden');
         curveCanvas.classList.add('hidden');
         curveCanvas.style.display = 'none';
-        if (tableTextboxes) tableTextboxes.style.display = 'none';
-        if (eflRow) eflRow.style.display = 'none';
     }
 }
 
@@ -140,20 +270,26 @@ function refreshDerivedUi() {
 }
 
 function refreshActiveView() {
+    refreshDerivedUi();
     if (viewChessboardBtn.classList.contains('active')) {
         renderChessboard();
     }
-    refreshDerivedUi();
+}
+
+function refreshFromTableModeDerivedViews() {
+    if (!tableTab?.classList.contains('active')) return;
+    chessCanvas._undistortTable = null;
+    refreshActiveView();
 }
 
 function setVisualizationMode(mode = 'chessboard') {
     const showChessboard = mode === 'chessboard';
     toggleChessUI(showChessboard);
     toggleCurveUI(!showChessboard);
+    refreshDerivedUi();
     if (showChessboard) {
         renderChessboard();
     }
-    refreshDerivedUi();
 }
 
 function updateExtrinsicModeButtons(mode = 'world2cam') {
@@ -171,7 +307,7 @@ function updateExtrinsicModeButtons(mode = 'world2cam') {
 }
 
 
-function getCurveAxisValue(axisKey, slope, rayZ, focalLengthPx, pixelSizeUm, unitOverride = null) {
+function getCurveAxisValue(axisKey, slope, rayZ, focalLengthPx, pixelSizeUm, unitOverride = null, effectiveFocalLengthUm = null) {
     const unit = unitOverride || (axisKey === 'x' ? tableXUnitSelect?.value : tableYUnitSelect?.value) || 'deg';
 
     if (unit === 'percent') {
@@ -189,9 +325,12 @@ function getCurveAxisValue(axisKey, slope, rayZ, focalLengthPx, pixelSizeUm, uni
         }
     }
 
-    const heightPixel = focalLengthPx * slope;
-    const pixelPitchUm = isFinite(pixelSizeUm) && pixelSizeUm > 0 ? pixelSizeUm : 1;
-    const heightUm = heightPixel * pixelPitchUm;
+    const pixelPitchUm = isFinite(pixelSizeUm) && pixelSizeUm > 0 ? pixelSizeUm : NaN;
+    const focalLengthUm = isFinite(effectiveFocalLengthUm) && effectiveFocalLengthUm > 0
+        ? effectiveFocalLengthUm
+        : (isFinite(pixelPitchUm) && isFinite(focalLengthPx) ? focalLengthPx * pixelPitchUm : NaN);
+    const heightUm = isFinite(focalLengthUm) ? focalLengthUm * slope : NaN;
+    const heightPixel = isFinite(pixelPitchUm) && pixelPitchUm > 0 ? heightUm / pixelPitchUm : NaN;
     switch (unit) {
         case 'pixel': return heightPixel;
         case 'um': return heightUm;
@@ -202,9 +341,9 @@ function getCurveAxisValue(axisKey, slope, rayZ, focalLengthPx, pixelSizeUm, uni
     }
 }
 
-function getCurvePercentValue(referenceSlope, measuredSlope, rayZ, referenceFocalLengthPx, measuredFocalLengthPx, pixelSizeUm, xUnit) {
-    const referenceValue = getCurveAxisValue('x', referenceSlope, rayZ, referenceFocalLengthPx, pixelSizeUm, xUnit);
-    const measuredValue = getCurveAxisValue('y', measuredSlope, rayZ, measuredFocalLengthPx, pixelSizeUm, xUnit);
+function getCurvePercentValue(referenceSlope, measuredSlope, rayZ, referenceFocalLengthPx, measuredFocalLengthPx, pixelSizeUm, xUnit, referenceEflUm = null, measuredEflUm = null) {
+    const referenceValue = getCurveAxisValue('x', referenceSlope, rayZ, referenceFocalLengthPx, pixelSizeUm, xUnit, referenceEflUm);
+    const measuredValue = getCurveAxisValue('y', measuredSlope, rayZ, measuredFocalLengthPx, pixelSizeUm, xUnit, measuredEflUm);
 
     if (!isFinite(referenceValue) || !isFinite(measuredValue)) return NaN;
     if (Math.abs(referenceValue) < 1e-12) {
@@ -404,17 +543,35 @@ function initCurveChart() {
         }],
         data: {
             datasets: [{
-                label: 'y',
+                label: 'before fit',
                 data: [],
                 borderColor: '#0b63f6',
+                backgroundColor: '#0b63f6',
                 borderWidth: 2,
                 pointRadius: 0,
                 tension: 0
             }, {
-                label: 'y',
+                label: 'after fit',
+                data: [],
+                borderColor: '#d97706',
+                backgroundColor: '#d97706',
+                borderWidth: 2,
+                borderDash: [6, 4],
+                pointRadius: 0,
+                tension: 0
+            }, {
+                label: '',
                 data: [],
                 borderColor: '#0b63f6',
                 backgroundColor: '#0b63f6',
+                pointRadius: 4,
+                pointHoverRadius: 4,
+                showLine: false
+            }, {
+                label: '',
+                data: [],
+                borderColor: '#d97706',
+                backgroundColor: '#d97706',
                 pointRadius: 4,
                 pointHoverRadius: 4,
                 showLine: false
@@ -427,7 +584,18 @@ function initCurveChart() {
             layout: {
                 padding: { left: 6, right: 6, top: 6, bottom: 2 }
             },
-            plugins: { legend: { display: false } },
+            plugins: {
+                legend: {
+                    display: true,
+                    labels: {
+                        color: '#000000',
+                        filter(item, data) {
+                            const dataset = data.datasets[item.datasetIndex];
+                            return !!item.text && Array.isArray(dataset?.data) && dataset.data.length > 0;
+                        }
+                    }
+                }
+            },
             scales: {
                 x: { type: 'linear', title: { display: true, text: getCurveAxisTitle('x'), color: '#000000' }, border: { color: '#000000', width: 1 }, grid: { color: '#b0b0b0', drawTicks: true, tickLength: -4 }, ticks: { color: '#000000', maxTicksLimit: 16, includeBounds: false, padding: 8 } },
                 y: { type: 'linear', title: { display: true, text: getCurveAxisTitle('y'), color: '#000000' }, border: { color: '#000000', width: 1 }, grid: { color: '#b0b0b0', drawTicks: true, tickLength: -4 }, ticks: { color: '#000000', maxTicksLimit: 12, includeBounds: false, padding: 8 } }
@@ -437,18 +605,36 @@ function initCurveChart() {
 }
 
 function updateFovResults() {
-    const [pixelSizeUm, iw, ih, fx, fy, cx, cy] = getIntrinsics();
+    let model;
+    if (tableTab?.classList.contains('active')) {
+        const intrinsics = getTableConversionIntrinsics();
+        const refitResult = curveCanvas?._curveSamples?.refitResult || getCurveRefitResult();
+        const distortion = refitResult?.params?.length >= 8
+            ? [
+                refitResult.params[0], refitResult.params[1], refitResult.params[2], refitResult.params[3],
+                refitResult.params[4], refitResult.params[5], refitResult.params[6], refitResult.params[7],
+                !!refitResult.fisheye
+            ]
+            : getDistortion();
+        model = { intrinsics, distortion };
+    } else {
+        model = viewChessboardBtn?.classList.contains('active')
+            ? getChessboardViewCameraModel()
+            : { intrinsics: getIntrinsics(), distortion: getDistortion() };
+    }
+    const [, iw, ih] = model.intrinsics;
+
     // Horizontal FOV: left (-X) and right (+X)
-    const h1 = findFovLimit(-1, 0);
-    const h2 = findFovLimit(1, 0);
+    const h1 = findFovLimit(-1, 0, 0.09, model.intrinsics, model.distortion);
+    const h2 = findFovLimit(1, 0, 0.09, model.intrinsics, model.distortion);
     const hFOV = (h1 + h2) * 180 / Math.PI;
     // Vertical FOV: up (-Y) and down (+Y)
-    const v1 = findFovLimit(0, -1);
-    const v2 = findFovLimit(0, 1);
+    const v1 = findFovLimit(0, -1, 0.09, model.intrinsics, model.distortion);
+    const v2 = findFovLimit(0, 1, 0.09, model.intrinsics, model.distortion);
     const vFOV = (v1 + v2) * 180 / Math.PI;
     // Diagonal FOV: four corners
-    const d1 = findFovLimit(iw, ih) + findFovLimit(-iw, -ih);
-    const d2 = findFovLimit(-iw, ih) + findFovLimit(iw, -ih);
+    const d1 = findFovLimit(iw, ih, 0.09, model.intrinsics, model.distortion) + findFovLimit(-iw, -ih, 0.09, model.intrinsics, model.distortion);
+    const d2 = findFovLimit(-iw, ih, 0.09, model.intrinsics, model.distortion) + findFovLimit(iw, -ih, 0.09, model.intrinsics, model.distortion);
     const dFOV = Math.min(d1, d2) * 180 / Math.PI;
     document.getElementById('hFOVResult').textContent = hFOV.toFixed(1);
     document.getElementById('vFOVResult').textContent = vFOV.toFixed(1);
@@ -493,10 +679,246 @@ function formatCurveSampleValue(value) {
     return value.toFixed(fractionDigits).replace(/\.?0+$/, '');
 }
 
+function formatEflValue(value) {
+    if (!isFinite(value)) return '';
+    const absValue = Math.abs(value);
+    if (absValue === 0) return '0';
+    const fractionDigits = absValue >= 1000 ? 2 : absValue >= 1 ? 4 : 6;
+    return value.toFixed(fractionDigits).replace(/\.?0+$/, '');
+}
+
 function updateEffectiveFocalLength() {
-    if (!eflText) return;
+    if (!eflText || !eflText.readOnly) return;
     const eflUm = getEffectiveFocalLengthUm();
-    eflText.value = isFinite(eflUm) ? formatCurveSampleValue(eflUm) : '';
+    eflText.value = isFinite(eflUm) ? formatEflValue(eflUm) : '';
+}
+
+function getTableEffectiveFocalLengthUm() {
+    const value = parseFloat(eflText?.value);
+    return isFinite(value) && value > 0 ? value : NaN;
+}
+
+function getTableFocalLengthPx() {
+    const [pixelSizeUm, , , fx, fy] = getIntrinsics();
+    const eflUm = getTableEffectiveFocalLengthUm();
+    if (isFinite(pixelSizeUm) && pixelSizeUm > 0 && isFinite(eflUm) && eflUm > 0) {
+        return eflUm / pixelSizeUm;
+    }
+    return isFinite(fx) ? fx : (isFinite(fy) ? fy : NaN);
+}
+
+function getTableConversionIntrinsics() {
+    const [pixelSizeUm, iw, ih, fx, fy, cx, cy] = getIntrinsics();
+    const focalLengthPx = getTableFocalLengthPx();
+    return [
+        pixelSizeUm,
+        iw,
+        ih,
+        isFinite(focalLengthPx) ? focalLengthPx : fx,
+        isFinite(focalLengthPx) ? focalLengthPx : fy,
+        cx,
+        cy
+    ];
+}
+
+function parseTableNumericLines(text) {
+    if (typeof text !== 'string') return [];
+    return text
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(line => line.length > 0)
+        .map(line => Number(line))
+        .filter(value => isFinite(value));
+}
+
+function getIntrinsicTableSamples() {
+    const [pixelSizeUm, , , fx] = getTableConversionIntrinsics();
+    const xUnit = intrinsicTableXUnitSelect?.value || 'deg';
+    const yUnit = intrinsicTableYUnitSelect?.value || 'deg';
+    const effectiveFocalLengthUm = getTableEffectiveFocalLengthUm();
+    const xValues = parseTableNumericLines(intrinsicTableXText?.value || '');
+    const yValues = parseTableNumericLines(intrinsicTableYText?.value || '');
+    const count = Math.min(xValues.length, yValues.length);
+    const samples = [];
+
+    for (let i = 0; i < count; i++) {
+        const incomingSlope = convertCurveValueToSlope(
+            xValues[i], xUnit,
+            fx, pixelSizeUm, effectiveFocalLengthUm
+        );
+        let distortedSlope;
+        if (yUnit === 'percent') {
+            const referenceValue = getCurveAxisValue('x', incomingSlope, 1, fx, pixelSizeUm, xUnit, effectiveFocalLengthUm);
+            if (!isFinite(referenceValue)) continue;
+
+            if (Math.abs(referenceValue) < 1e-12) {
+                if (Math.abs(yValues[i]) < 1e-12) {
+                    distortedSlope = 0;
+                } else {
+                    continue;
+                }
+            } else {
+                const measuredValue = referenceValue * (1 + yValues[i] / 100);
+                distortedSlope = convertCurveValueToSlope(
+                    measuredValue, xUnit,
+                    fx, pixelSizeUm, effectiveFocalLengthUm
+                );
+            }
+        } else {
+            distortedSlope = convertCurveValueToSlope(
+                yValues[i], yUnit,
+                fx, pixelSizeUm, effectiveFocalLengthUm
+            );
+        }
+        if (!isFinite(incomingSlope) || !isFinite(distortedSlope)) continue;
+
+        const sign = incomingSlope < 0 ? -1 : 1;
+        const absIncoming = Math.abs(incomingSlope);
+        const absDistorted = Math.abs(distortedSlope);
+        samples.push({
+            incomingSlope,
+            distortedSlope,
+            rayZ: 1,
+            xu: sign * absIncoming,
+            yu: 0,
+            xDist: sign * absDistorted,
+            yDist: 0,
+            sourceXValue: xValues[i],
+            sourceYValue: yValues[i]
+        });
+    }
+
+    return samples;
+}
+
+function sampleToCurveAxisPoint(sample, xUnit, yUnit, fx, fy, pixelSizeUm, effectiveFocalLengthUm = null) {
+    const xValue = getCurveAxisValue('x', sample.incomingSlope, sample.rayZ, fx, pixelSizeUm, xUnit, effectiveFocalLengthUm);
+    const yValue = yUnit === 'percent'
+        ? getCurvePercentValue(sample.incomingSlope, sample.distortedSlope, sample.rayZ, fx, fy, pixelSizeUm, xUnit, effectiveFocalLengthUm, effectiveFocalLengthUm)
+        : getCurveAxisValue('y', sample.distortedSlope, sample.rayZ, fy, pixelSizeUm, yUnit, effectiveFocalLengthUm);
+
+    if (!isFinite(xValue) || !isFinite(yValue)) return null;
+    return { x: xValue, y: yValue };
+}
+
+function getCurveRefitResult(rawSamples = null) {
+    const samples = rawSamples || curveCanvas._curveSamples?.rawSamples || [];
+    if (!samples.length) return null;
+
+    const [k1, k2, p1, p2, k3, k4, k5, k6, fisheye] = getDistortion();
+    const fitMask = [
+        document.getElementById('fitK1')?.checked ?? false,
+        document.getElementById('fitK2')?.checked ?? false,
+        false,
+        false,
+        document.getElementById('fitK3')?.checked ?? false,
+        document.getElementById('fitK4')?.checked ?? false,
+        document.getElementById('fitK5')?.checked ?? false,
+        document.getElementById('fitK6')?.checked ?? false
+    ];
+    const useFisheye = document.getElementById('fitKB')?.checked ?? false;
+
+    if (tableTab?.classList.contains('active')) {
+        const radialSamples = [];
+        for (const s of samples) {
+            const a = Math.abs(s.incomingSlope);
+            const b = Math.abs(s.distortedSlope);
+            if (a < 1e-14) continue;
+            radialSamples.push({
+                xu: a,
+                yu: 0,
+                rayZ: 1,
+                xDist: b,
+                yDist: 0
+            });
+        }
+
+        if (!radialSamples.length) return null;
+
+        const refitResult = fitDistortionFromCurveSamples(radialSamples, {
+            fitMask,
+            useFisheye,
+            sourceFisheye: fisheye,
+            initialParams: [k1, k2, p1, p2, k3, k4, k5, k6]
+        });
+        return refitResult?.params ? refitResult : null;
+    }
+
+    return fitDistortionFromCurveSamples(samples, {
+        fitMask,
+        useFisheye,
+        sourceFisheye: fisheye,
+        initialParams: [k1, k2, p1, p2, k3, k4, k5, k6]
+    });
+}
+
+function shouldOutputCurveAfterFit() {
+    return curveOutputAfterFitRadio?.checked ?? true;
+}
+
+function getAfterFitPixelRms(refitResult, samples) {
+    if (!refitResult?.params || !Array.isArray(samples) || !samples.length) return NaN;
+
+    const [, , , fx, fy] = tableTab?.classList.contains('active')
+        ? getTableConversionIntrinsics()
+        : getIntrinsics();
+    if (!isFinite(fx) || !isFinite(fy)) return NaN;
+
+    let totalErrorPx2 = 0;
+    let validCount = 0;
+
+    for (const sample of samples) {
+        const [xPred, yPred] = applyDistortion(
+            sample.xu, sample.yu, sample.rayZ,
+            refitResult.params[0], refitResult.params[1], refitResult.params[2], refitResult.params[3],
+            refitResult.params[4], refitResult.params[5], refitResult.params[6], refitResult.params[7],
+            refitResult.fisheye
+        );
+        if (!isFinite(xPred) || !isFinite(yPred) || !isFinite(sample.xDist) || !isFinite(sample.yDist)) continue;
+
+        const du = fx * (xPred - sample.xDist);
+        const dv = fy * (yPred - sample.yDist);
+        totalErrorPx2 += du * du + dv * dv;
+        validCount += 1;
+    }
+
+    return validCount > 0 ? Math.sqrt(totalErrorPx2 / validCount) : NaN;
+}
+
+function updateAfterFitRmsText() {
+    if (!afterFitRmsText) return;
+
+    const refitResult = curveCanvas?._curveSamples?.refitResult || getCurveRefitResult();
+    const rawSamples = curveCanvas?._curveSamples?.rawSamples || [];
+    const rmsPx = getAfterFitPixelRms(refitResult, rawSamples);
+
+    if (!isFinite(rmsPx)) {
+        afterFitRmsText.textContent = '';
+        return;
+    }
+
+    afterFitRmsText.textContent = ` (RMS ${formatCurveSampleValue(rmsPx)} px)`;
+}
+
+function updateCurveParamTextboxes() {
+    if (!curveParamNamesTextbox || !curveParamValuesTextbox) return;
+
+    const [, , , fx, fy, cx, cy] = tableTab?.classList.contains('active')
+        ? getTableConversionIntrinsics()
+        : getIntrinsics();
+    const [k1, k2, p1, p2, k3, k4, k5, k6] = getDistortion();
+    const names = ['fₓ', 'fᵧ', 'cₓ', 'cᵧ', 'k₁', 'k₂', 'p₁', 'p₂', 'k₃', 'k₄', 'k₅', 'k₆'];
+    let values = [fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, k5, k6];
+
+    const refitResult = shouldOutputCurveAfterFit()
+        ? (curveCanvas._curveSamples?.refitResult || getCurveRefitResult())
+        : null;
+    if (refitResult?.params) {
+        values = [fx, fy, cx, cy, ...refitResult.params];
+    }
+
+    curveParamNamesTextbox.value = names.join('\n');
+    curveParamValuesTextbox.value = values.map(value => formatCurveSampleValue(value)).join('\n');
 }
 
 function getCurveStepDegrees() {
@@ -507,10 +929,20 @@ function getCurveStepDegrees() {
 function updateDistortionTableTextboxes() {
     if (!tableTextbox1 || !tableTextbox2 || !tableXUnitSelect || !tableYUnitSelect) return;
 
-    const [pixelSizeUm, , , fx, fy] = getIntrinsics();
+    const isFromTable = tableTab?.classList.contains('active');
+    const [pixelSizeUm, , , fx, fy] = isFromTable ? getTableConversionIntrinsics() : getIntrinsics();
+    const effectiveFocalLengthUm = isFromTable ? getTableEffectiveFocalLengthUm() : NaN;
     const xUnit = tableXUnitSelect.value || 'deg';
     const yUnit = tableYUnitSelect.value || 'deg';
-    const rawSamples = curveCanvas._curveSamples?.rawSamples || [];
+    const curveSamples = curveCanvas._curveSamples || {};
+    const useAfterFit = shouldOutputCurveAfterFit();
+
+    let rawSamples = curveSamples.rawSamples || [];
+    if (isFromTable) {
+        rawSamples = useAfterFit
+            ? (curveSamples.outputTableAfterSamples || [])
+            : (curveSamples.outputTableBeforeSamples || curveSamples.rawSamples || []);
+    }
 
     if (tableXLabel) tableXLabel.textContent = 'X';
     if (tableYLabel) tableYLabel.textContent = 'Y';
@@ -523,12 +955,26 @@ function updateDistortionTableTextboxes() {
 
     const xValues = [];
     const yValues = [];
+    const refitResult = (!isFromTable && useAfterFit)
+        ? (curveCanvas._curveSamples?.refitResult || getCurveRefitResult(rawSamples))
+        : null;
 
     rawSamples.forEach(sample => {
-        const xValue = getCurveAxisValue('x', sample.incomingSlope, sample.rayZ, fx, pixelSizeUm, xUnit);
+        let measuredSlope = sample.distortedSlope;
+        if (refitResult?.params) {
+            const [fitXDist, fitYDist] = applyDistortion(
+                sample.xu, sample.yu, sample.rayZ,
+                refitResult.params[0], refitResult.params[1], refitResult.params[2], refitResult.params[3],
+                refitResult.params[4], refitResult.params[5], refitResult.params[6], refitResult.params[7],
+                refitResult.fisheye
+            );
+            measuredSlope = Math.hypot(fitXDist, fitYDist);
+        }
+
+        const xValue = getCurveAxisValue('x', sample.incomingSlope, sample.rayZ, fx, pixelSizeUm, xUnit, effectiveFocalLengthUm);
         const yValue = yUnit === 'percent'
-            ? getCurvePercentValue(sample.incomingSlope, sample.distortedSlope, sample.rayZ, fx, fy, pixelSizeUm, xUnit)
-            : getCurveAxisValue('y', sample.distortedSlope, sample.rayZ, fy, pixelSizeUm, yUnit);
+            ? getCurvePercentValue(sample.incomingSlope, measuredSlope, sample.rayZ, fx, fy, pixelSizeUm, xUnit, effectiveFocalLengthUm, effectiveFocalLengthUm)
+            : getCurveAxisValue('y', measuredSlope, sample.rayZ, fy, pixelSizeUm, yUnit, effectiveFocalLengthUm);
         if (!isFinite(xValue) || !isFinite(yValue)) return;
         xValues.push(formatCurveSampleValue(xValue));
         yValues.push(formatCurveSampleValue(yValue));
@@ -544,60 +990,175 @@ function refreshCurveChart() {
     const curveChart = curveCanvas._curveChart;
     if (!curveChart) {
         updateDistortionTableTextboxes();
+        updateCurveParamTextboxes();
+        updateAfterFitRmsText();
         return;
     }
 
+    const fromParamMode = paramTab?.classList.contains('active');
     const [pixelSizeUm, iw, ih, fx, fy, cx, cy] = getIntrinsics();
+    const [, , , tableFx, tableFy] = getTableConversionIntrinsics();
+    const effectiveFocalLengthUm = fromParamMode ? NaN : getTableEffectiveFocalLengthUm();
     const [k1, k2, p1, p2, k3, k4, k5, k6, fisheye] = getDistortion();
     const xUnit = tableXUnitSelect?.value || 'deg';
     const yUnit = tableYUnitSelect?.value || 'deg';
+    const showBeforeFitCurve = showBeforeFitCurveCheckbox?.checked ?? true;
+    const showAfterFitCurve = showAfterFitCurveCheckbox?.checked ?? true;
     const incomingStepDeg = getCurveStepDegrees();
     const incomingStepRad = incomingStepDeg * Math.PI / 180;
     const [rayDirX, rayDirY] = getCurveDirectionUnitVector();
+    const conversionFx = fromParamMode ? fx : tableFx;
+    const conversionFy = fromParamMode ? fy : tableFy;
 
-    const fovLimitRad = findFovLimit(rayDirX, rayDirY, incomingStepDeg);
+    let fovLimitRad = 0;
+    if (fromParamMode) {
+        fovLimitRad = findFovLimit(rayDirX, rayDirY, incomingStepDeg);
+    }
     const extraRad = 10 * Math.PI / 180;
     const maxAngleRad = Math.min(fovLimitRad + extraRad, Math.PI - 1e-6);
 
-    const rawSamples = [];
+    let rawSamples = [];
     const points = [];
+    const fitPoints = [];
+    let outputTableAfterSamples = [];
     let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
     let fovPoint = null;
+    let fitFovPoint = null;
 
-    for (let angle = 0; angle <= maxAngleRad + 1e-8; angle += incomingStepRad) {
-        const rayZ = angle > Math.PI * 0.5 ? -1 : 1;
-        const incomingSlope = Math.tan(rayZ > 0 ? angle : (Math.PI - angle));
-        const xu = rayDirX * incomingSlope;
-        const yu = rayDirY * incomingSlope;
-        const [xDist, yDist] = applyDistortion(xu, yu, rayZ, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
-        const u = fx * xDist + cx;
-        const v = fy * yDist + cy;
-        const inResolution = u >= 0 && u <= iw && v >= 0 && v <= ih;
-        if (!inResolution) break;
+    if (fromParamMode) {
+        for (let angle = 0; angle <= maxAngleRad + 1e-8; angle += incomingStepRad) {
+            const rayZ = angle > Math.PI * 0.5 ? -1 : 1;
+            const incomingSlope = Math.tan(rayZ > 0 ? angle : (Math.PI - angle));
+            const xu = rayDirX * incomingSlope;
+            const yu = rayDirY * incomingSlope;
+            const [xDist, yDist] = applyDistortion(xu, yu, rayZ, k1, k2, p1, p2, k3, k4, k5, k6, fisheye);
+            const u = fx * xDist + cx;
+            const v = fy * yDist + cy;
+            const inResolution = u >= 0 && u <= iw && v >= 0 && v <= ih;
+            if (!inResolution) break;
 
-        const distortedSlope = Math.hypot(xDist, yDist);
-        rawSamples.push({ angleRad: angle, incomingSlope, distortedSlope, rayZ });
+            const distortedSlope = Math.hypot(xDist, yDist);
+            rawSamples.push({ angleRad: angle, incomingSlope, distortedSlope, rayZ, xu, yu, xDist, yDist });
 
-        const xValue = getCurveAxisValue('x', incomingSlope, rayZ, fx, pixelSizeUm, xUnit);
-        const yValue = yUnit === 'percent'
-            ? getCurvePercentValue(incomingSlope, distortedSlope, rayZ, fx, fy, pixelSizeUm, xUnit)
-            : getCurveAxisValue('y', distortedSlope, rayZ, fy, pixelSizeUm, yUnit);
-        if (!isFinite(xValue) || !isFinite(yValue)) continue;
-        points.push({ x: xValue, y: yValue });
-        xMin = Math.min(xMin, xValue); xMax = Math.max(xMax, xValue);
-        yMin = Math.min(yMin, yValue); yMax = Math.max(yMax, yValue);
-        if (!fovPoint && angle + 1e-8 >= fovLimitRad) fovPoint = { x: xValue, y: yValue };
+            const xValue = getCurveAxisValue('x', incomingSlope, rayZ, fx, pixelSizeUm, xUnit, effectiveFocalLengthUm);
+            const yValue = yUnit === 'percent'
+                ? getCurvePercentValue(incomingSlope, distortedSlope, rayZ, fx, fy, pixelSizeUm, xUnit, effectiveFocalLengthUm, effectiveFocalLengthUm)
+                : getCurveAxisValue('y', distortedSlope, rayZ, fy, pixelSizeUm, yUnit, effectiveFocalLengthUm);
+            if (!isFinite(xValue) || !isFinite(yValue)) continue;
+            points.push({ x: xValue, y: yValue });
+            xMin = Math.min(xMin, xValue); xMax = Math.max(xMax, xValue);
+            yMin = Math.min(yMin, yValue); yMax = Math.max(yMax, yValue);
+            if (!fovPoint && angle + 1e-8 >= fovLimitRad) fovPoint = { x: xValue, y: yValue };
+        }
+    } else {
+        rawSamples = getIntrinsicTableSamples();
+        rawSamples.forEach(sample => {
+            const point = sampleToCurveAxisPoint(sample, xUnit, yUnit, conversionFx, conversionFy, pixelSizeUm, effectiveFocalLengthUm);
+            if (!point) return;
+            points.push(point);
+            xMin = Math.min(xMin, point.x); xMax = Math.max(xMax, point.x);
+            yMin = Math.min(yMin, point.y); yMax = Math.max(yMax, point.y);
+        });
     }
 
-    curveCanvas._curveSamples = { rawSamples, plotPoints: points, fovPoint };
+    const refitResult = getCurveRefitResult(rawSamples);
+    if (refitResult?.params) {
+        if (fromParamMode) {
+            rawSamples.forEach(sample => {
+                const [fitXDist, fitYDist] = applyDistortion(
+                    sample.xu, sample.yu, sample.rayZ,
+                    refitResult.params[0], refitResult.params[1], refitResult.params[2], refitResult.params[3],
+                    refitResult.params[4], refitResult.params[5], refitResult.params[6], refitResult.params[7],
+                    refitResult.fisheye
+                );
+                const fitSlope = Math.hypot(fitXDist, fitYDist);
+                const xValue = getCurveAxisValue('x', sample.incomingSlope, sample.rayZ, fx, pixelSizeUm, xUnit, effectiveFocalLengthUm);
+                const yValue = yUnit === 'percent'
+                    ? getCurvePercentValue(sample.incomingSlope, fitSlope, sample.rayZ, fx, fy, pixelSizeUm, xUnit, effectiveFocalLengthUm, effectiveFocalLengthUm)
+                    : getCurveAxisValue('y', fitSlope, sample.rayZ, fy, pixelSizeUm, yUnit, effectiveFocalLengthUm);
+                if (!isFinite(xValue) || !isFinite(yValue)) return;
+                fitPoints.push({ x: xValue, y: yValue });
+                xMin = Math.min(xMin, xValue); xMax = Math.max(xMax, xValue);
+                yMin = Math.min(yMin, yValue); yMax = Math.max(yMax, yValue);
+                if (!fitFovPoint && Math.abs(sample.angleRad - fovLimitRad) <= incomingStepRad + 1e-8) {
+                    fitFovPoint = { x: xValue, y: yValue };
+                }
+            });
+        } else {
+            const slopes = rawSamples.map(sample => sample.incomingSlope).filter(value => isFinite(value));
+            if (slopes.length) {
+                const minAngle = Math.atan(Math.min(...slopes));
+                const maxAngle = Math.atan(Math.max(...slopes));
+                const step = Math.max(incomingStepRad, 1e-6);
+                const direction = maxAngle >= minAngle ? 1 : -1;
+
+                for (let angle = minAngle; direction > 0 ? angle <= maxAngle + 1e-10 : angle >= maxAngle - 1e-10; angle += direction * step) {
+                    const incomingSlope = Math.tan(angle);
+                    const sign = incomingSlope < 0 ? -1 : 1;
+                    const absIncoming = Math.abs(incomingSlope);
+                    const [fitXDist, fitYDist] = applyDistortion(
+                        sign * absIncoming, 0, 1,
+                        refitResult.params[0], refitResult.params[1], refitResult.params[2], refitResult.params[3],
+                        refitResult.params[4], refitResult.params[5], refitResult.params[6], refitResult.params[7],
+                        refitResult.fisheye
+                    );
+                    if (!isFinite(fitXDist) || !isFinite(fitYDist)) continue;
+
+                    const fitSample = {
+                        incomingSlope,
+                        distortedSlope: sign * Math.hypot(fitXDist, fitYDist),
+                        rayZ: 1,
+                        xu: sign * absIncoming,
+                        yu: 0,
+                        xDist: fitXDist,
+                        yDist: fitYDist
+                    };
+                    outputTableAfterSamples.push(fitSample);
+
+                    const point = sampleToCurveAxisPoint(fitSample, xUnit, yUnit, conversionFx, conversionFy, pixelSizeUm, effectiveFocalLengthUm);
+                    if (!point) continue;
+                    fitPoints.push(point);
+                    xMin = Math.min(xMin, point.x); xMax = Math.max(xMax, point.x);
+                    yMin = Math.min(yMin, point.y); yMax = Math.max(yMax, point.y);
+                }
+            }
+        }
+    }
+
+    curveCanvas._curveSamples = {
+        rawSamples,
+        plotPoints: points,
+        fitPoints,
+        fovPoint,
+        fitFovPoint,
+        refitResult,
+        outputTableBeforeSamples: rawSamples,
+        outputTableAfterSamples
+    };
+
+    const visiblePoints = showBeforeFitCurve ? points : [];
+    const visibleFitPoints = showAfterFitCurve ? fitPoints : [];
+    const rangePoints = (visiblePoints.length || visibleFitPoints.length)
+        ? [...visiblePoints, ...visibleFitPoints]
+        : [...points, ...fitPoints];
+
+    xMin = Infinity; xMax = -Infinity; yMin = Infinity; yMax = -Infinity;
+    rangePoints.forEach(point => {
+        xMin = Math.min(xMin, point.x);
+        xMax = Math.max(xMax, point.x);
+        yMin = Math.min(yMin, point.y);
+        yMax = Math.max(yMax, point.y);
+    });
 
     const xRange = expandCurveAxisRange(xMin, xMax, getCurveAxisMinimumSpan('x'));
     const yRange = expandCurveAxisRange(yMin, yMax, getCurveAxisMinimumSpan('y'));
     const xPad = (xRange.max - xRange.min) * 0.05;
     const yPad = (yRange.max - yRange.min) * 0.1;
 
-    curveChart.data.datasets[0].data = points;
-    curveChart.data.datasets[1].data = fovPoint ? [fovPoint] : [];
+    curveChart.data.datasets[0].data = visiblePoints;
+    curveChart.data.datasets[1].data = visibleFitPoints;
+    curveChart.data.datasets[2].data = showBeforeFitCurve && fovPoint ? [fovPoint] : [];
+    curveChart.data.datasets[3].data = showAfterFitCurve && fitFovPoint ? [fitFovPoint] : [];
     curveChart.options.scales.x.min = xRange.min - xPad;
     curveChart.options.scales.x.max = xRange.max + xPad;
     curveChart.options.scales.y.min = yRange.min - yPad;
@@ -607,6 +1168,8 @@ function refreshCurveChart() {
     curveChart.update('none');
 
     updateDistortionTableTextboxes();
+    updateCurveParamTextboxes();
+    updateAfterFitRmsText();
     renderDirectionCanvas();
 }
 
@@ -617,11 +1180,30 @@ function updateValuesFromSlider(id) {
     updateParameter(id, parseFloat(slider.value));
 }
 
+function syncSliderFromTextValue(id, value) {
+    const slider = document.getElementById(id);
+    if (!slider || !Number.isFinite(value)) return;
+
+    const min = parseFloat(slider.min);
+    const max = parseFloat(slider.max);
+
+    if (Number.isFinite(min) && value < min) {
+        slider.value = slider.min;
+        return;
+    }
+    if (Number.isFinite(max) && value > max) {
+        slider.value = slider.max;
+        return;
+    }
+
+    slider.value = String(value);
+}
+
 function updateValuesFromTextBox(id) {
     const textBox = document.getElementById(id + 'Text');
-    const slider = document.getElementById(id);
-    if (slider) slider.value = textBox.value;
-    updateParameter(id, parseFloat(textBox.value));
+    const value = parseFloat(textBox.value);
+    syncSliderFromTextValue(id, value);
+    updateParameter(id, value);
 }
 
 function syncExtrinsicsFromWorldToCamera() {
@@ -723,6 +1305,7 @@ function updateParameter(id, value) {
 
 function updateImageDimension(changedId) {
     const [, iw, ih] = getIntrinsics();
+    const maxCanvasSide = 640;
 
     if (changedId === 'iw') {
         const cx = iw / 2;
@@ -736,7 +1319,19 @@ function updateImageDimension(changedId) {
         document.getElementById('cyText').value = cy;
     }
 
-    chessCanvas.height = ih * chessCanvas.width / iw;
+    if (isFinite(iw) && isFinite(ih) && iw > 0 && ih > 0) {
+        let canvasWidth = maxCanvasSide;
+        let canvasHeight = ih * canvasWidth / iw;
+
+        // Keep max chessboard view height equal to max width.
+        if (canvasHeight > maxCanvasSide) {
+            canvasHeight = maxCanvasSide;
+            canvasWidth = iw * canvasHeight / ih;
+        }
+
+        chessCanvas.width = Math.max(1, Math.round(canvasWidth));
+        chessCanvas.height = Math.max(1, Math.round(canvasHeight));
+    }
 }
 
 // Tab mode handlers
@@ -744,14 +1339,24 @@ if (paramTab && tableTab) {
     paramTab.addEventListener('click', () => setParamTableMode('param'));
     tableTab.addEventListener('click', () => setParamTableMode('table'));
 }
+if (curveToParamTab && curveToTableTab) {
+    curveToParamTab.addEventListener('click', () => setCurveOutputMode('param'));
+    curveToTableTab.addEventListener('click', () => setCurveOutputMode('table'));
+}
 
 setParamTableMode('param');
+setCurveOutputMode('param');
+syncFitCheckboxBridge();
+updateChessboardIntrinsicSourceControls();
 
 // Intrinsics
 // ps has only text input, no range slider.
 const psTextInput = document.getElementById('psText');
 if (psTextInput) {
     psTextInput.addEventListener('input', () => updateValuesFromTextBox('ps'));
+}
+if (eflText) {
+    eflText.addEventListener('input', () => refreshFromTableModeDerivedViews());
 }
 
 ['iw', 'ih', 'fx', 'fy', 'cx', 'cy'].forEach(id => {
@@ -838,6 +1443,15 @@ viewChessboardBtn.addEventListener('click', () => {
     setVisualizationMode('chessboard');
 });
 
+if (chessInputIntrinsicRadio) chessInputIntrinsicRadio.addEventListener('input', () => {
+    chessCanvas._undistortTable = null;
+    refreshActiveView();
+});
+if (chessOutputIntrinsicRadio) chessOutputIntrinsicRadio.addEventListener('input', () => {
+    chessCanvas._undistortTable = null;
+    refreshActiveView();
+});
+
 viewCurveBtn.addEventListener('click', () => {
     setVisualizationMode('curve');
 });
@@ -847,6 +1461,27 @@ setupCurveAxisUI();
 if (tableXUnitSelect) tableXUnitSelect.addEventListener('change', () => refreshCurveChart());
 if (tableYUnitSelect) tableYUnitSelect.addEventListener('change', () => refreshCurveChart());
 if (curveStepDegText) curveStepDegText.addEventListener('input', () => refreshCurveChart());
+[intrinsicTableXText, intrinsicTableYText].forEach(textarea => {
+    if (textarea) textarea.addEventListener('input', () => refreshFromTableModeDerivedViews());
+});
+[intrinsicTableXUnitSelect, intrinsicTableYUnitSelect].forEach(select => {
+    if (select) select.addEventListener('change', () => refreshFromTableModeDerivedViews());
+});
+[showBeforeFitCurveCheckbox, showAfterFitCurveCheckbox].forEach(checkbox => {
+    if (checkbox) checkbox.addEventListener('input', () => refreshCurveChart());
+});
+[curveOutputBeforeFitRadio, curveOutputAfterFitRadio].forEach(radio => {
+    if (radio) radio.addEventListener('input', () => refreshCurveChart());
+});
+['fitK1', 'fitK2', 'fitK3', 'fitK4', 'fitK5', 'fitK6', 'fitKB'].forEach(id => {
+    const checkbox = document.getElementById(id);
+    if (checkbox) {
+        checkbox.addEventListener('input', () => {
+            chessCanvas._undistortTable = null;
+            refreshActiveView();
+        });
+    }
+});
 
 curveDirectionAngleSlider.addEventListener('input', function () {
     curveDirectionAngleText.value = this.value;
@@ -858,6 +1493,7 @@ curveDirectionAngleText.addEventListener('input', function () { setCurveDirectio
 document.getElementById('reset').addEventListener('click', () => location.reload());
 
 // init
+updateImageDimension('iw');
 initCurveChart();
 setVisualizationMode('chessboard');
 updateExtrinsicModeButtons('world2cam');
